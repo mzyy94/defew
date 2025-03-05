@@ -61,4 +61,19 @@ mod tests {
         assert_eq!(model.a, 42);
         assert_eq!(model.b, 0);
     }
+
+    #[test]
+    fn test_defew_struct_convert_generic() {
+        #[derive(Defew)]
+        struct Data<T: From<u8>> {
+            #[new(80u8.into())]
+            a: T,
+        }
+
+        let model = Data::<i64>::new();
+        assert_eq!(model.a, 80i64);
+
+        let model = Data::<char>::new();
+        assert_eq!(model.a, 'P');
+    }
 }
