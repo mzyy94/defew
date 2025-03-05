@@ -7,7 +7,7 @@ Creates a `new()` constructor with specified default values for a struct.
 ```rust
 use defew::Defew;
 
-#[derive(Default, Defew)]
+#[derive(Defew)]
 pub struct X {
     a: i32,
     #[new("ABC")]

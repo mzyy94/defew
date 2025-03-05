@@ -19,8 +19,8 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 .to_compile_error()
                 .into();
         }
+        let ident = field.ident.as_ref().unwrap();
         if let Some(attr) = field.attrs.first() {
-            let ident = field.ident.as_ref().unwrap();
             let MetaList {
                 tokens,
                 delimiter: MacroDelimiter::Paren(_),
@@ -35,6 +35,10 @@ pub fn defew(input: TokenStream) -> TokenStream {
             default_values.push(quote! {
                 #ident: #tokens,
             });
+        } else {
+            default_values.push(quote! {
+                #ident: Default::default(),
+            });
         }
     }
 
@@ -46,7 +50,6 @@ pub fn defew(input: TokenStream) -> TokenStream {
             pub fn new() -> Self {
                 Self {
                     #(#default_values)*
-                    ..Default::default()
                 }
             }
         }
