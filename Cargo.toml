@@ -10,6 +10,8 @@ keywords = ["derive", "default", "macro"]
 categories = ["development-tools"]
 repository = "https://github.com/mzyy94/defew"
 
+rust-version = "1.81.0"
+
 [lib]
 proc-macro = true
 
