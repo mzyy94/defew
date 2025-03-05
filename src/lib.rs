@@ -12,6 +12,11 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let mut default_values = Vec::new();
     for field in fields {
+        if field.attrs.len() > 1 {
+            return syn::Error::new_spanned(&field.attrs.last(), "Defew accepts one attribute")
+                .to_compile_error()
+                .into();
+        }
         if let Some(attr) = field.attrs.first() {
             let ident = field.ident.as_ref().unwrap();
             let MetaList { tokens, .. } = attr.meta.require_list().unwrap();
