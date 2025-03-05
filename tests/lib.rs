@@ -93,4 +93,14 @@ mod tests {
         assert_eq!(model.b, 1);
         assert_eq!(model.c, 42);
     }
+
+    #[test]
+    fn test_defew_param_unnamed() {
+        #[derive(Defew)]
+        struct Data(#[new(42)] u64, #[new(param)] i32);
+
+        let model = Data::new(5);
+        assert_eq!(model.0, 42);
+        assert_eq!(model.1, 5);
+    }
 }

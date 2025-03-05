@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use proc_macro::TokenStream;
-use quote::{quote, TokenStreamExt};
+use quote::{format_ident, quote, TokenStreamExt};
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, MacroDelimiter, MetaList};
 
 #[proc_macro_derive(Defew, attributes(new))]
@@ -13,7 +13,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let mut default_values = Vec::new();
     let mut params = Vec::new();
-    for field in fields {
+    for (i, field) in fields.into_iter().enumerate() {
         if field.attrs.len() > 1 {
             return syn::Error::new_spanned(field.attrs.last(), "Defew accepts one attribute")
                 .to_compile_error()
@@ -40,6 +40,8 @@ pub fn defew(input: TokenStream) -> TokenStream {
         };
 
         if syn::parse2(tokens.clone()).map_or(false, |ident: syn::Ident| ident == "param") {
+            let param = format_ident!("param{i}");
+            let ident = ident.map_or_else(|| quote!(#param), |ident| quote!(#ident));
             let ty = &field.ty;
             params.push(quote! { #ident: #ty, });
             default_values.push(quote! {
