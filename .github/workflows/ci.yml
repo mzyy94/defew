@@ -23,7 +23,7 @@ jobs:
         run: cargo test --verbose
 
       - name: Run clippy
-        run: cargo clippy --verbose -- -D warnings -D clippy::all
+        run: cargo clippy -- -D warnings -D clippy::all -D clippy::style -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo
 
       - name: Run fmt
         run: cargo fmt -- --check
