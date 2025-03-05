@@ -43,7 +43,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
     }
 
     let struct_name = &input.ident;
-    let (impl_generics, _, where_clause) = &input.generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
 
     let mut values = quote! { Self };
 
@@ -58,7 +58,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        impl #impl_generics #struct_name #where_clause {
+        impl #impl_generics #struct_name #ty_generics #where_clause {
             pub fn new() -> Self {
                 #values
             }

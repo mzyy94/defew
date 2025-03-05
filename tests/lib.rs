@@ -39,12 +39,26 @@ mod tests {
     }
 
     #[test]
-    fn test_defew_struct() {
+    fn test_defew_struct_unnamed() {
         #[derive(Defew)]
         struct Data(#[new(42)] u64, i32);
 
         let model = Data::new();
         assert_eq!(model.0, 42);
         assert_eq!(model.1, 0);
+    }
+
+    #[test]
+    fn test_defew_struct_default_generic() {
+        #[derive(Defew)]
+        struct Data<T: Default> {
+            #[new(42)]
+            a: u64,
+            b: T,
+        }
+
+        let model = Data::<i32>::new();
+        assert_eq!(model.a, 42);
+        assert_eq!(model.b, 0);
     }
 }
