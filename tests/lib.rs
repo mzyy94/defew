@@ -2,13 +2,17 @@
 mod tests {
     use defew::Defew;
 
+    const BAR: &str = "bar";
+
     #[derive(Clone, Debug, PartialEq, Default, Defew)]
     pub struct Data {
         foo: i32,
-        #[new("bar".to_string())]
+        #[new(BAR.into())]
         bar: String,
         #[new(42)]
         baz: u64,
+        #[new("123".parse().ok())]
+        abc: Option<i32>,
     }
 
     #[test]
@@ -17,5 +21,6 @@ mod tests {
         assert_eq!(model.foo, 0);
         assert_eq!(model.bar, "bar".to_string());
         assert_eq!(model.baz, 42);
+        assert_eq!(model.abc, Some(123));
     }
 }
