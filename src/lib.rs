@@ -13,6 +13,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
     };
 
     let mut default_values = Vec::new();
+    let mut params = Vec::new();
     for field in fields {
         if field.attrs.len() > 1 {
             return syn::Error::new_spanned(field.attrs.last(), "Defew accepts one attribute")
@@ -31,6 +32,19 @@ pub fn defew(input: TokenStream) -> TokenStream {
                     .to_compile_error()
                     .into();
             };
+
+            if syn::parse2(tokens.clone())
+                .map(|ident: syn::Ident| ident.to_string() == "param")
+                .unwrap_or(false)
+            {
+                let ident = &field.ident;
+                let ty = &field.ty;
+                params.push(quote! { #ident: #ty, });
+                default_values.push(quote! {
+                    #ident,
+                });
+                continue;
+            }
 
             default_values.push(quote! {
                 #ident #tokens,
@@ -59,7 +73,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl #impl_generics #struct_name #ty_generics #where_clause {
-            pub fn new() -> Self {
+            pub fn new(#(#params)*) -> Self {
                 #values
             }
         }

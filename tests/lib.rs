@@ -76,4 +76,21 @@ mod tests {
         let model = Data::<char>::new();
         assert_eq!(model.a, 'P');
     }
+
+    #[test]
+    fn test_defew_param() {
+        #[derive(Defew)]
+        struct Data {
+            a: String,
+            #[new(param)]
+            b: i32,
+            #[new(42i32 as u64)]
+            c: u64,
+        }
+
+        let model = Data::new(1);
+        assert_eq!(model.a, "".to_string());
+        assert_eq!(model.b, 1);
+        assert_eq!(model.c, 42);
+    }
 }
