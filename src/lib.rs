@@ -4,6 +4,9 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote, TokenStreamExt};
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, MacroDelimiter, MetaList};
 
+/// # Panics
+///
+/// panic if #[derive(Defew)] is used on anything other than a struct
 #[proc_macro_derive(Defew, attributes(new))]
 pub fn defew(input: TokenStream) -> TokenStream {
     let input = &parse_macro_input!(input as DeriveInput);

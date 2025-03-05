@@ -1,4 +1,4 @@
-# Defew = Default + new()
+# Defew = Default + `new()`
 
 Creates a `new()` constructor with specified default values for a struct.
 
