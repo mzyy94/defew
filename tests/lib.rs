@@ -7,7 +7,7 @@ mod tests {
         const BAR: &str = "bar";
 
         #[derive(Clone, Debug, PartialEq, Default, Defew)]
-        pub struct Data {
+        struct Data {
             foo: i32,
             #[new(BAR.into())]
             bar: String,
@@ -27,7 +27,7 @@ mod tests {
     #[test]
     fn test_defew_without_default() {
         #[derive(Defew)]
-        pub struct Data {
+        struct Data {
             foo: i32,
             #[new(42i32 as u64)]
             baz: u64,
@@ -41,7 +41,7 @@ mod tests {
     #[test]
     fn test_defew_struct() {
         #[derive(Defew)]
-        pub struct Data(#[new(42)] u64, i32);
+        struct Data(#[new(42)] u64, i32);
 
         let model = Data::new();
         assert_eq!(model.0, 42);
