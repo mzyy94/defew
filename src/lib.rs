@@ -15,7 +15,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let mut default_values = Vec::new();
     for field in fields {
         if field.attrs.len() > 1 {
-            return syn::Error::new_spanned(&field.attrs.last(), "Defew accepts one attribute")
+            return syn::Error::new_spanned(field.attrs.last(), "Defew accepts one attribute")
                 .to_compile_error()
                 .into();
         }
@@ -27,7 +27,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 ..
             } = attr.meta.require_list().unwrap()
             else {
-                return syn::Error::new_spanned(&attr, "Defew supports #[new(value)] syntax")
+                return syn::Error::new_spanned(attr, "Defew supports #[new(value)] syntax")
                     .to_compile_error()
                     .into();
             };
