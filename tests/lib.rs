@@ -103,4 +103,39 @@ mod tests {
         assert_eq!(model.0, 42);
         assert_eq!(model.1, 5);
     }
+
+    #[test]
+    fn test_defew_param_generic() {
+        trait Fruit {
+            type Output;
+            fn tax() -> Self::Output;
+        }
+        struct Banana();
+        impl Fruit for Banana {
+            type Output = i32;
+            fn tax() -> Self::Output {
+                15
+            }
+        }
+        struct Apple();
+        impl Fruit for Apple {
+            type Output = i32;
+            fn tax() -> Self::Output {
+                50
+            }
+        }
+
+        #[derive(Defew)]
+        struct Data<T: Fruit> {
+            #[new(param)]
+            _input: T,
+            #[new(T::tax())]
+            output: <T as Fruit>::Output,
+        }
+
+        let model = Data::new(Banana());
+        assert_eq!(model.output, 15);
+        let model = Data::new(Apple());
+        assert_eq!(model.output, 50);
+    }
 }
