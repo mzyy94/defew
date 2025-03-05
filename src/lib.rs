@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, MacroDelimiter, MetaList};
+use quote::{quote, TokenStreamExt};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, MacroDelimiter, MetaList};
 
 #[proc_macro_derive(Defew, attributes(new))]
 pub fn defew(input: TokenStream) -> TokenStream {
@@ -19,7 +19,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 .to_compile_error()
                 .into();
         }
-        let ident = field.ident.as_ref().unwrap();
+        let ident = field.ident.as_ref().map_or(quote!(), |id| quote!(#id:));
         if let Some(attr) = field.attrs.first() {
             let MetaList {
                 tokens,
@@ -33,11 +33,11 @@ pub fn defew(input: TokenStream) -> TokenStream {
             };
 
             default_values.push(quote! {
-                #ident: #tokens,
+                #ident #tokens,
             });
         } else {
             default_values.push(quote! {
-                #ident: Default::default(),
+                #ident Default::default(),
             });
         }
     }
@@ -45,12 +45,22 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let struct_name = &input.ident;
     let (impl_generics, _, where_clause) = &input.generics.split_for_impl();
 
+    let mut values = quote! { Self };
+
+    match fields {
+        Fields::Named(f) => f
+            .brace_token
+            .surround(&mut values, |v| v.append_all(default_values)),
+        Fields::Unnamed(f) => f
+            .paren_token
+            .surround(&mut values, |v| v.append_all(default_values)),
+        Fields::Unit => panic!("Defew does not support unit structs"),
+    };
+
     let expanded = quote! {
         impl #impl_generics #struct_name #where_clause {
             pub fn new() -> Self {
-                Self {
-                    #(#default_values)*
-                }
+                #values
             }
         }
     };

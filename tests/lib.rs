@@ -37,4 +37,14 @@ mod tests {
         assert_eq!(model.foo, 0);
         assert_eq!(model.baz, 42);
     }
+
+    #[test]
+    fn test_defew_struct() {
+        #[derive(Defew)]
+        pub struct Data(#[new(42)] u64, i32);
+
+        let model = Data::new();
+        assert_eq!(model.0, 42);
+        assert_eq!(model.1, 0);
+    }
 }

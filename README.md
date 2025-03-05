@@ -20,6 +20,13 @@ let x = X::new();
 assert_eq!(x.a, 0);
 assert_eq!(x.b, "ABC");
 assert_eq!(x.c, Some(42));
+
+#[derive(Defew)]
+pub struct Y(i32, #[new(10.5 - 10f64)] f64);
+
+let y = Y::new();
+assert_eq!(y.0, 0);
+assert_eq!(y.1, 0.5);
 ```
 
 ## License
