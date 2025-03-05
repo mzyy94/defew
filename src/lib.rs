@@ -7,9 +7,8 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, MacroDelimit
 #[proc_macro_derive(Defew, attributes(new))]
 pub fn defew(input: TokenStream) -> TokenStream {
     let input = &parse_macro_input!(input as DeriveInput);
-    let DataStruct { fields, .. } = match &input.data {
-        Data::Struct(v) => v,
-        _ => panic!("Defew only supports structs"),
+    let Data::Struct(DataStruct { fields, .. }) = &input.data else {
+        panic!("Defew only supports structs")
     };
 
     let mut default_values = Vec::new();
@@ -20,40 +19,38 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 .to_compile_error()
                 .into();
         }
-        let ident = field.ident.as_ref().map_or(quote!(), |id| quote!(#id:));
-        if let Some(attr) = field.attrs.first() {
-            let MetaList {
-                tokens,
-                delimiter: MacroDelimiter::Paren(_),
-                ..
-            } = attr.meta.require_list().unwrap()
-            else {
-                return syn::Error::new_spanned(attr, "Defew supports #[new(value)] syntax")
-                    .to_compile_error()
-                    .into();
-            };
-
-            if syn::parse2(tokens.clone())
-                .map(|ident: syn::Ident| ident.to_string() == "param")
-                .unwrap_or(false)
-            {
-                let ident = &field.ident;
-                let ty = &field.ty;
-                params.push(quote! { #ident: #ty, });
-                default_values.push(quote! {
-                    #ident,
-                });
-                continue;
-            }
-
+        let ident = field.ident.as_ref();
+        let punct = ident.map(|_| quote!(:));
+        let Some(attr) = field.attrs.first() else {
             default_values.push(quote! {
-                #ident #tokens,
+                #ident #punct Default::default(),
             });
-        } else {
+            continue;
+        };
+
+        let MetaList {
+            tokens,
+            delimiter: MacroDelimiter::Paren(_),
+            ..
+        } = attr.meta.require_list().unwrap()
+        else {
+            return syn::Error::new_spanned(attr, "Defew supports #[new(value)] syntax")
+                .to_compile_error()
+                .into();
+        };
+
+        if syn::parse2(tokens.clone()).map_or(false, |ident: syn::Ident| ident == "param") {
+            let ty = &field.ty;
+            params.push(quote! { #ident: #ty, });
             default_values.push(quote! {
-                #ident Default::default(),
+                #ident,
             });
+            continue;
         }
+
+        default_values.push(quote! {
+            #ident #punct #tokens,
+        });
     }
 
     let struct_name = &input.ident;
