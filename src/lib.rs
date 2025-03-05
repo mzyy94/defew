@@ -42,7 +42,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 .into();
         };
 
-        if syn::parse2(tokens.clone()).map_or(false, |ident: syn::Ident| ident == "param") {
+        if syn::parse2(tokens.clone()).is_ok_and(|ident: syn::Ident| ident == "param") {
             let param = format_ident!("param{i}");
             let ident = ident.map_or_else(|| quote!(#param), |ident| quote!(#ident));
             let ty = &field.ty;
