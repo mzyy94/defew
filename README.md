@@ -21,3 +21,7 @@ assert_eq!(x.a, 0);
 assert_eq!(x.b, "ABC");
 assert_eq!(x.c, Some(42));
 ```
+
+## License
+
+[MIT](LICENSE.MIT) OR [Apache-2.0](LICENSE.APACHE)

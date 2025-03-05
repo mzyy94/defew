@@ -1,7 +1,12 @@
 [package]
 name = "defew"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
+authors = ["mzyy94"]
+license = "MIT OR Apache-2.0"
+description = "A new() derive macro for structs"
+readme = "README.md"
+keywords = ["derive", "default", "macro"]
 
 [lib]
 proc-macro = true
