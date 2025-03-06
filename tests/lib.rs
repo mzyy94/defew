@@ -82,7 +82,7 @@ mod tests {
         #[derive(Defew)]
         struct Data {
             a: String,
-            #[new(param)]
+            #[new(required)]
             b: i32,
             #[new(42i32 as u64)]
             c: u64,
@@ -97,7 +97,7 @@ mod tests {
     #[test]
     fn test_defew_param_unnamed() {
         #[derive(Defew)]
-        struct Data(#[new(42)] u64, #[new(param)] i32);
+        struct Data(#[new(42)] u64, #[new(required)] i32);
 
         let model = Data::new(5);
         assert_eq!(model.0, 42);
@@ -127,7 +127,7 @@ mod tests {
 
         #[derive(Defew)]
         struct Data<T: Fruit> {
-            #[new(param)]
+            #[new(required)]
             _input: T,
             #[new(T::tax())]
             output: <T as Fruit>::Output,

@@ -44,7 +44,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
         };
 
         match syn::parse2::<syn::Ident>(tokens.clone()) {
-            Ok(id) if id == "param" => {
+            Ok(id) if id == "required" => {
                 let param = format_ident!("param{i}");
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
