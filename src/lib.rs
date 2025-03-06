@@ -58,20 +58,17 @@ pub fn defew(input: TokenStream) -> TokenStream {
         });
     }
 
-    let struct_name = &input.ident;
-    let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
-
     let mut values = quote! { Self };
+    let append = |v: &mut proc_macro2::TokenStream| v.append_all(default_values);
 
     match fields {
-        Fields::Named(f) => f
-            .brace_token
-            .surround(&mut values, |v| v.append_all(default_values)),
-        Fields::Unnamed(f) => f
-            .paren_token
-            .surround(&mut values, |v| v.append_all(default_values)),
+        Fields::Named(f) => f.brace_token.surround(&mut values, append),
+        Fields::Unnamed(f) => f.paren_token.surround(&mut values, append),
         Fields::Unit => panic!("Defew does not support unit structs"),
     };
+
+    let struct_name = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
 
     let expanded = quote! {
         impl #impl_generics #struct_name #ty_generics #where_clause {

@@ -6,6 +6,7 @@ version = 3
 name = "defew"
 version = "0.1.4"
 dependencies = [
+ "proc-macro2",
  "quote",
  "syn",
 ]
