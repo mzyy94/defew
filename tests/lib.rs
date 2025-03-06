@@ -138,4 +138,24 @@ mod tests {
         let model = Data::new(Apple());
         assert_eq!(model.output, 50);
     }
+
+    #[test]
+    fn test_defew_transparent() {
+        #[derive(Default, Defew)]
+        struct DataA {
+            #[new(42)]
+            value: i32,
+        }
+
+        #[derive(Defew)]
+        struct DataB {
+            a1: DataA,
+            #[new(transparent)]
+            a2: DataA,
+        }
+
+        let model = DataB::new();
+        assert_eq!(model.a1.value, 0);
+        assert_eq!(model.a2.value, 42);
+    }
 }

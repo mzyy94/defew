@@ -22,6 +22,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 .to_compile_error()
                 .into();
         }
+        let ty = &field.ty;
         let ident = field.ident.as_ref();
         let punct = ident.map(|_| quote!(:));
         let Some(attr) = field.attrs.first() else {
@@ -42,20 +43,20 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 .into();
         };
 
-        if syn::parse2(tokens.clone()).is_ok_and(|ident: syn::Ident| ident == "param") {
-            let param = format_ident!("param{i}");
-            let ident = ident.unwrap_or(&param);
-            let ty = &field.ty;
-            params.push(quote! { #ident: #ty, });
-            default_values.push(quote! {
-                #ident,
-            });
-            continue;
+        match syn::parse2::<syn::Ident>(tokens.clone()) {
+            Ok(id) if id == "param" => {
+                let param = format_ident!("param{i}");
+                let param = ident.unwrap_or(&param);
+                params.push(quote! { #param: #ty, });
+                default_values.push(quote! { #param, });
+            }
+            Ok(id) if id == "transparent" => default_values.push(quote! {
+                #ident #punct #ty::new(),
+            }),
+            _ => default_values.push(quote! {
+                #ident #punct #tokens,
+            }),
         }
-
-        default_values.push(quote! {
-            #ident #punct #tokens,
-        });
     }
 
     let mut values = quote! { Self };
