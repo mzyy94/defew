@@ -6,7 +6,7 @@ mod tests {
     fn test_defew_basic() {
         const BAR: &str = "bar";
 
-        #[derive(Clone, Debug, PartialEq, Default, Defew)]
+        #[derive(Defew)]
         struct Data {
             foo: i32,
             #[new(BAR.into())]
@@ -25,20 +25,6 @@ mod tests {
     }
 
     #[test]
-    fn test_defew_without_default() {
-        #[derive(Defew)]
-        struct Data {
-            foo: i32,
-            #[new(42i32 as u64)]
-            baz: u64,
-        }
-
-        let model = Data::new();
-        assert_eq!(model.foo, 0);
-        assert_eq!(model.baz, 42);
-    }
-
-    #[test]
     fn test_defew_struct_unnamed() {
         #[derive(Defew)]
         struct Data(#[new(42)] u64, i32);
@@ -49,7 +35,7 @@ mod tests {
     }
 
     #[test]
-    fn test_defew_struct_default_generic() {
+    fn test_defew_struct_default_generics() {
         #[derive(Defew)]
         struct Data<T: Default> {
             #[new(42)]
@@ -63,7 +49,7 @@ mod tests {
     }
 
     #[test]
-    fn test_defew_struct_convert_generic() {
+    fn test_defew_struct_from_generics() {
         #[derive(Defew)]
         struct Data<T: From<u8>> {
             #[new(80u8.into())]
@@ -95,7 +81,7 @@ mod tests {
     }
 
     #[test]
-    fn test_defew_param_unnamed() {
+    fn test_defew_required_unnamed() {
         #[derive(Defew)]
         struct Data(#[new(42)] u64, #[new] i32);
 
@@ -105,7 +91,7 @@ mod tests {
     }
 
     #[test]
-    fn test_defew_param_generic() {
+    fn test_defew_required_generics() {
         trait Fruit {
             type Output;
             fn tax() -> Self::Output;
