@@ -4,9 +4,69 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote, TokenStreamExt};
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, MacroDelimiter, MetaList};
 
+/// Creates a `new()` constructor with specified default values for a struct.
+///
+/// # Examples
+///
+/// ## Basic usage
+///
+/// ```rust
+/// use defew::Defew;
+///
+/// #[derive(Defew)]
+/// struct Data {
+///     a: i32,
+///     #[new("ABC".into())]
+///     b: String,
+///     #[new(Some(42))]
+///     c: Option<u64>,
+/// }
+///
+/// let value = Data::new();
+/// assert_eq!(value.a, 0);
+/// assert_eq!(value.b, "ABC");
+/// assert_eq!(value.c, Some(42));
+/// ```
+///
+/// ## Require parameters
+///
+/// ```rust
+/// use defew::Defew;
+///
+/// #[derive(Defew)]
+/// struct Data {
+///     #[new]
+///     a: i32,
+///     #[new(123)]
+///     b: u64,
+/// }
+///
+/// let value = Data::new(42);
+/// assert_eq!(value.a, 42);
+/// assert_eq!(value.b, 123);
+/// ```
+///
 /// # Panics
 ///
 /// panic if #[derive(Defew)] is used on anything other than a struct
+///
+/// ```compile_fail
+/// use defew::Defew;
+///
+/// #[derive(Defew)]
+/// enum Data {
+///   Foo,
+///   Bar,
+/// }
+/// ```
+///
+/// ```compile_fail
+/// use defew::Defew;
+///
+/// #[derive(Defew)]
+/// struct Data;
+/// ```
+///
 #[proc_macro_derive(Defew, attributes(new))]
 pub fn defew(input: TokenStream) -> TokenStream {
     let input = &parse_macro_input!(input as DeriveInput);
