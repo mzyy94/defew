@@ -44,13 +44,13 @@ pub fn defew(input: TokenStream) -> TokenStream {
         };
 
         match tokens.to_string().as_str() {
-            "#required" => {
+            "#required" | "**" => {
                 let param = format_ident!("param{i}");
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
                 default_values.push(quote! { #param, });
             }
-            "#transparent" => default_values.push(quote! {
+            "#transparent" | "::" => default_values.push(quote! {
                 #ident #punct #ty::new(),
             }),
             _ => default_values.push(quote! {

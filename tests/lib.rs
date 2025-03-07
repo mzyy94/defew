@@ -158,4 +158,25 @@ mod tests {
         assert_eq!(model.a1.value, 0);
         assert_eq!(model.a2.value, 42);
     }
+
+    #[test]
+    fn test_defew_short_magic_word() {
+        #[derive(Defew)]
+        struct DataA {
+            #[new(42)]
+            value: i32,
+        }
+
+        #[derive(Defew)]
+        struct DataB {
+            #[new(**)]
+            value: i32,
+            #[new(::)]
+            a1: DataA,
+        }
+
+        let model = DataB::new(123);
+        assert_eq!(model.value, 123);
+        assert_eq!(model.a1.value, 42);
+    }
 }
