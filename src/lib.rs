@@ -43,14 +43,14 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 .into();
         };
 
-        match syn::parse2::<syn::Ident>(tokens.clone()) {
-            Ok(id) if id == "required" => {
+        match tokens.to_string().as_str() {
+            "#required" => {
                 let param = format_ident!("param{i}");
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
                 default_values.push(quote! { #param, });
             }
-            Ok(id) if id == "transparent" => default_values.push(quote! {
+            "#transparent" => default_values.push(quote! {
                 #ident #punct #ty::new(),
             }),
             _ => default_values.push(quote! {
