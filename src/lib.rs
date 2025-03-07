@@ -32,31 +32,26 @@ pub fn defew(input: TokenStream) -> TokenStream {
             continue;
         };
 
-        let MetaList {
-            tokens,
-            delimiter: MacroDelimiter::Paren(_),
-            ..
-        } = attr.meta.require_list().unwrap()
-        else {
-            return syn::Error::new_spanned(attr, "Defew supports #[new(value)] syntax")
-                .to_compile_error()
-                .into();
-        };
-
-        match tokens.to_string().as_str() {
-            "#required" | "**" => {
+        match &attr.meta {
+            syn::Meta::Path(_) => {
                 let param = format_ident!("param{i}");
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
                 default_values.push(quote! { #param, });
             }
-            "#transparent" | "::" => default_values.push(quote! {
-                #ident #punct #ty::new(),
-            }),
-            _ => default_values.push(quote! {
+            syn::Meta::List(MetaList {
+                tokens,
+                delimiter: MacroDelimiter::Paren(_),
+                ..
+            }) => default_values.push(quote! {
                 #ident #punct #tokens,
             }),
-        }
+            _ => {
+                return syn::Error::new_spanned(attr, "Defew supports #[new(value)] syntax")
+                    .to_compile_error()
+                    .into()
+            }
+        };
     }
 
     let mut values = quote! { Self };

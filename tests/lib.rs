@@ -78,11 +78,11 @@ mod tests {
     }
 
     #[test]
-    fn test_defew_param() {
+    fn test_defew_required() {
         #[derive(Defew)]
         struct Data {
             a: String,
-            #[new(#required)]
+            #[new]
             b: i32,
             #[new(42i32 as u64)]
             c: u64,
@@ -97,7 +97,7 @@ mod tests {
     #[test]
     fn test_defew_param_unnamed() {
         #[derive(Defew)]
-        struct Data(#[new(42)] u64, #[new(#required)] i32);
+        struct Data(#[new(42)] u64, #[new] i32);
 
         let model = Data::new(5);
         assert_eq!(model.0, 42);
@@ -127,7 +127,7 @@ mod tests {
 
         #[derive(Defew)]
         struct Data<T: Fruit> {
-            #[new(#required)]
+            #[new]
             _input: T,
             #[new(T::tax())]
             output: <T as Fruit>::Output,
@@ -140,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn test_defew_transparent() {
+    fn test_defew_child_new() {
         #[derive(Default, Defew)]
         struct DataA {
             #[new(42)]
@@ -150,33 +150,12 @@ mod tests {
         #[derive(Defew)]
         struct DataB {
             a1: DataA,
-            #[new(#transparent)]
+            #[new(DataA::new())]
             a2: DataA,
         }
 
         let model = DataB::new();
         assert_eq!(model.a1.value, 0);
         assert_eq!(model.a2.value, 42);
-    }
-
-    #[test]
-    fn test_defew_short_magic_word() {
-        #[derive(Defew)]
-        struct DataA {
-            #[new(42)]
-            value: i32,
-        }
-
-        #[derive(Defew)]
-        struct DataB {
-            #[new(**)]
-            value: i32,
-            #[new(::)]
-            a1: DataA,
-        }
-
-        let model = DataB::new(123);
-        assert_eq!(model.value, 123);
-        assert_eq!(model.a1.value, 42);
     }
 }
