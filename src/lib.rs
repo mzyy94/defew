@@ -168,6 +168,9 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let Data::Struct(DataStruct { fields, .. }) = &input.data else {
         panic!("Defew only supports structs")
     };
+    if matches!(fields, Fields::Unit) {
+        panic!("Defew does not support unit structs")
+    }
 
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
         // If the attribute is #[defew(trait)], we will implement the trait
@@ -179,32 +182,27 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let mut default_values = Vec::new();
     let mut params = Vec::new(); // params for the `::new(..)` constructor
-    for (i, field) in fields.into_iter().enumerate() {
+    for (i, field) in fields.iter().enumerate() {
         let ty = &field.ty;
+        let i = syn::Index::from(i);
         let ident = field.ident.as_ref();
-        let punct = ident.map(|_| quote!(:)); // for named struct fields
+        let param = ident.map_or(quote!(#i), |idn| quote!(#idn));
 
         default_values.push(match get_token_result(&field.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => {
-                let param = format_ident!("param{i}"); // for unnamed fields
-                let param = ident.unwrap_or(&param);
-                params.push(quote! { #param: #ty, });
-                quote! { #param, }
+                let arg = format_ident!("_{param}"); // for unnamed fields: e.g. _0, _1, _2
+                let arg = ident.unwrap_or(&arg);
+                params.push(quote! { #arg: #ty, });
+                quote! { #param: #arg, }
             }
             // If the attribute is #[new(value)], we will use the provided value
-            TokenResult::List(tokens) => quote! { #ident #punct #tokens, },
+            TokenResult::List(value) => quote! { #param: #value, },
             // If the attribute is not present, we will use the default value
-            TokenResult::NoAttr => quote! { #ident #punct Default::default(), },
+            TokenResult::NoAttr => quote! { #param: Default::default(), },
             TokenResult::Err(e) => return e.to_compile_error().into(),
         });
     }
-
-    let values = match fields {
-        Fields::Named(_) => quote!( Self { #(#default_values)* } ),
-        Fields::Unnamed(_) => quote!( Self ( #(#default_values)* ) ),
-        Fields::Unit => panic!("Defew does not support unit structs"),
-    };
 
     let struct_name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
@@ -212,7 +210,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
             #visibility fn new(#(#params)*) -> Self {
-                #values
+                Self { #(#default_values)* }
             }
         }
     };
