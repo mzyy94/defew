@@ -10,6 +10,8 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 ///
 /// ## Basic usage
 ///
+/// `#[new(value)]` attribute can be used to specify the default value for a field.
+///
 /// ```rust
 /// use defew::Defew;
 ///
@@ -30,6 +32,8 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 ///
 /// ## Default values
 ///
+/// If no `#[new(..)]` attribute is provided, the default value is used for all fields.
+///
 /// ```rust
 /// # use defew::Defew;
 /// #
@@ -42,7 +46,9 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// assert_eq!(Data::new(), Default::default());
 /// ```
 ///
-/// ## Require parameters
+/// ## Constructor parameters
+///
+/// `#[new]` attribute can be used to ask for the value as a parameter of the `new()` constructor.
 ///
 /// ```rust
 /// # use defew::Defew;
@@ -110,19 +116,19 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 ///
 /// # Panics
 ///
-/// panic if #[derive(Defew)] is used on anything other than a struct
+/// compile fails if #[derive(Defew)] is used on anything other than a struct.
 ///
 /// ```compile_fail
 /// # use defew::Defew;
 /// #
 /// #[derive(Defew)]
 /// enum Data {
-///   Foo,
-///   Bar,
+///     Foo,
+///     Bar,
 /// }
 /// ```
 ///
-/// panic if #[derive(Defew)] is used on a unit struct
+/// compile fails if #[derive(Defew)] is used on a unit struct.
 ///
 /// ```compile_fail
 /// # use defew::Defew;
@@ -131,7 +137,7 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// struct Data;
 /// ```
 ///
-/// panic if #[new(..)] is used with invalid value.
+/// compile fails if #[new(..)] is used with invalid value.
 ///
 /// ```compile_fail
 /// # use defew::Defew;
@@ -143,7 +149,7 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// }
 /// ```
 ///
-/// panic if #[new(..)] is used more than once.
+/// compile fails if #[new(..)] is used more than once.
 ///
 /// ```compile_fail
 /// # use defew::Defew;
