@@ -73,6 +73,18 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// assert_eq!(value.b, 'b');
 /// ```
 ///
+/// ## With `PhantomData`
+///
+/// ```ignore
+/// # use defew::Defew;
+/// # use std::marker::PhantomData;
+/// #
+/// #[derive(PartialEq, Defew)]
+/// struct Data<T>(#[new] i32, PhantomData<T>);
+///
+/// let _42 = Data::<i32>::new(42) == Data::<isize>::new(42); // compile error
+/// ```
+///
 /// ## With Trait
 ///
 /// ```rust
@@ -117,6 +129,31 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// #
 /// #[derive(Defew)]
 /// struct Data;
+/// ```
+///
+/// panic if #[new(..)] is used with invalid value.
+///
+/// ```compile_fail
+/// # use defew::Defew;
+/// #
+/// #[derive(Defew)]
+/// struct Data {
+///     #[new(42, 11, 'a')]
+///     a: i32,
+/// }
+/// ```
+///
+/// panic if #[new(..)] is used more than once.
+///
+/// ```compile_fail
+/// # use defew::Defew;
+/// #
+/// #[derive(Defew)]
+/// struct Data {
+///     #[new(42)]
+///     #[new(11)]
+///     a: i32,
+/// }
 /// ```
 ///
 #[proc_macro_derive(Defew, attributes(new, defew))]
