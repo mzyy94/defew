@@ -128,8 +128,8 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
         // If the attribute is #[defew(trait)], we will implement the trait
-        Ok(Some(tokens)) if !tokens.is_empty() => (quote! { #tokens for }, quote!()),
-        Err(e) => return e.to_compile_error().into(),
+        TokenResult::List(tokens) => (quote! { #tokens for }, quote!()),
+        TokenResult::Err(e) => return e.to_compile_error().into(),
         // If the attribute is not present, we will not implement any trait
         _ => (quote!(), quote!(pub)),
     };
@@ -143,17 +143,17 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
         default_values.push(match get_token_result(&field.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
-            Ok(Some(tokens)) if tokens.is_empty() => {
+            TokenResult::Path => {
                 let param = format_ident!("param{i}");
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
                 quote! { #param, }
             }
             // If the attribute is #[new(value)], we will use the provided value
-            Ok(Some(tokens)) => quote! { #ident #punct #tokens, },
+            TokenResult::List(tokens) => quote! { #ident #punct #tokens, },
             // If the attribute is not present, we will use the default value
-            Ok(None) => quote! { #ident #punct Default::default(), },
-            Err(e) => return e.to_compile_error().into(),
+            TokenResult::NoAttr => quote! { #ident #punct Default::default(), },
+            TokenResult::Err(e) => return e.to_compile_error().into(),
         });
     }
 
@@ -180,11 +180,16 @@ pub fn defew(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-fn get_token_result<'a>(
-    attrs: &'a [syn::Attribute],
-    name: &'static str,
-) -> Result<Option<&'a proc_macro2::TokenStream>, syn::Error> {
+enum TokenResult<'a> {
+    Path,
+    List(&'a proc_macro2::TokenStream),
+    NoAttr,
+    Err(syn::Error),
+}
+
+fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> TokenResult<'a> {
     use syn::{Error, MacroDelimiter, Meta, MetaList};
+    use TokenResult::{Err, List, NoAttr, Path};
     if attrs.len() > 1 {
         return Err(Error::new_spanned(
             attrs.last(),
@@ -192,7 +197,7 @@ fn get_token_result<'a>(
         ));
     }
     let Some(attr) = attrs.first() else {
-        return Ok(None);
+        return NoAttr;
     };
     if !attr.path().is_ident(name) {
         return Err(Error::new_spanned(
@@ -201,12 +206,12 @@ fn get_token_result<'a>(
         ));
     }
     match &attr.meta {
-        Meta::Path(_) => Ok(Some(Box::leak(Box::new(quote!())))),
+        Meta::Path(_) => Path,
         Meta::List(MetaList {
             tokens,
             delimiter: MacroDelimiter::Paren(_),
             ..
-        }) => Ok(Some(tokens)),
+        }) => List(tokens),
         _ => Err(Error::new_spanned(
             attr,
             format!("Defew supports #[{name}(..)] syntax"),
