@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use proc_macro::TokenStream;
-use quote::{format_ident, quote, TokenStreamExt};
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 
 /// Creates a `new()` constructor with specified default values for a struct.
@@ -157,12 +157,9 @@ pub fn defew(input: TokenStream) -> TokenStream {
         });
     }
 
-    let mut values = quote! { Self };
-    let append = |v: &mut proc_macro2::TokenStream| v.append_all(default_values);
-
-    match fields {
-        Fields::Named(f) => f.brace_token.surround(&mut values, append),
-        Fields::Unnamed(f) => f.paren_token.surround(&mut values, append),
+    let values = match fields {
+        Fields::Named(_) => quote!( Self { #(#default_values)* } ),
+        Fields::Unnamed(_) => quote!( Self ( #(#default_values)* ) ),
         Fields::Unit => panic!("Defew does not support unit structs"),
     };
 
