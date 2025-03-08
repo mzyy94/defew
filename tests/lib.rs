@@ -25,6 +25,17 @@ mod tests {
     }
 
     #[test]
+    fn test_defew_compare_default() {
+        #[derive(Default, PartialEq, Debug, Defew)]
+        struct Data {
+            a: i32,
+            b: u64,
+        }
+
+        assert_eq!(Data::new(), Default::default());
+    }
+
+    #[test]
     fn test_defew_struct_unnamed() {
         #[derive(Defew)]
         struct Data(#[new(42)] u64, i32);
