@@ -208,7 +208,7 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
             tokens,
             delimiter: MacroDelimiter::Paren(_),
             ..
-        }) => List(tokens),
+        }) if !tokens.is_empty() => List(tokens),
         _ => Err(Error::new_spanned(
             attr,
             format!("Defew supports #[{name}(..)] syntax"),
