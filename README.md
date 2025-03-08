@@ -31,6 +31,10 @@ assert_eq!(value.0, 42);
 assert_eq!(value.1, 0.5);
 ```
 
+## Changelog
+
+See [releases page](https://github.com/mzyy94/defew/releases)
+
 ## License
 
 [MIT](LICENSE.MIT) OR [Apache-2.0](LICENSE.APACHE)
