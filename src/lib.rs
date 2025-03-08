@@ -75,8 +75,10 @@ pub fn defew(input: TokenStream) -> TokenStream {
     };
 
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
+        // If the attribute is #[defew(trait)], we will implement the trait
         Ok(Some(tokens)) if !tokens.is_empty() => (quote! { #tokens for }, quote!()),
         Err(e) => return e.to_compile_error().into(),
+        // If the attribute is not present, we will not implement any trait
         _ => (quote!(), quote!(pub)),
     };
 
@@ -88,13 +90,16 @@ pub fn defew(input: TokenStream) -> TokenStream {
         let punct = ident.map(|_| quote!(:));
 
         default_values.push(match get_token_result(&field.attrs, "new") {
+            // If the attribute is #[new], we will ask for the value at runtime
             Ok(Some(tokens)) if tokens.is_empty() => {
                 let param = format_ident!("param{i}");
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
                 quote! { #param, }
             }
+            // If the attribute is #[new(value)], we will use the provided value
             Ok(Some(tokens)) => quote! { #ident #punct #tokens, },
+            // If the attribute is not present, we will use the default value
             Ok(None) => quote! { #ident #punct Default::default(), },
             Err(e) => return e.to_compile_error().into(),
         });
