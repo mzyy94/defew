@@ -74,16 +74,11 @@ pub fn defew(input: TokenStream) -> TokenStream {
         panic!("Defew only supports structs")
     };
 
-    let mut trait_for = quote!();
-    let mut visibility = quote!(pub);
-    match get_token_result(&input.attrs, "defew") {
-        Ok(Some(tokens)) => {
-            trait_for = quote! { #tokens for };
-            visibility = quote!();
-        }
+    let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
+        Ok(Some(tokens)) if !tokens.is_empty() => (quote! { #tokens for }, quote!()),
         Err(e) => return e.to_compile_error().into(),
-        _ => {}
-    }
+        _ => (quote!(), quote!(pub)),
+    };
 
     let mut default_values = Vec::new();
     let mut params = Vec::new();
@@ -92,23 +87,17 @@ pub fn defew(input: TokenStream) -> TokenStream {
         let ident = field.ident.as_ref();
         let punct = ident.map(|_| quote!(:));
 
-        match get_token_result(&field.attrs, "new") {
-            Ok(None) => {
-                default_values.push(quote! {
-                    #ident #punct Default::default(),
-                });
-            }
+        default_values.push(match get_token_result(&field.attrs, "new") {
             Ok(Some(tokens)) if tokens.is_empty() => {
                 let param = format_ident!("param{i}");
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
-                default_values.push(quote! { #param, });
+                quote! { #param, }
             }
-            Ok(Some(tokens)) => default_values.push(quote! {
-                #ident #punct #tokens,
-            }),
+            Ok(Some(tokens)) => quote! { #ident #punct #tokens, },
+            Ok(None) => quote! { #ident #punct Default::default(), },
             Err(e) => return e.to_compile_error().into(),
-        };
+        });
     }
 
     let mut values = quote! { Self };
