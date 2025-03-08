@@ -67,11 +67,38 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, MacroDelimit
 /// struct Data;
 /// ```
 ///
-#[proc_macro_derive(Defew, attributes(new))]
+#[proc_macro_derive(Defew, attributes(new, defew))]
 pub fn defew(input: TokenStream) -> TokenStream {
     let input = &parse_macro_input!(input as DeriveInput);
     let Data::Struct(DataStruct { fields, .. }) = &input.data else {
         panic!("Defew only supports structs")
+    };
+
+    let mut trait_for = quote!();
+    let mut visibility = quote!(pub);
+    if input.attrs.len() > 1 {
+        return syn::Error::new_spanned(input.attrs.last(), "Defew accepts one attribute")
+            .to_compile_error()
+            .into();
+    }
+    if let Some(attr) = input.attrs.first() {
+        if !attr.path().is_ident("defew") {
+            return syn::Error::new_spanned(
+                attr,
+                "Defew does not support #[new] for struct attribute",
+            )
+            .to_compile_error()
+            .into();
+        }
+        if let syn::Meta::List(MetaList {
+            tokens,
+            delimiter: MacroDelimiter::Paren(_),
+            ..
+        }) = &attr.meta
+        {
+            trait_for = quote! { #tokens for };
+            visibility = quote!();
+        }
     };
 
     let mut default_values = Vec::new();
@@ -127,8 +154,8 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
 
     let expanded = quote! {
-        impl #impl_generics #struct_name #ty_generics #where_clause {
-            pub fn new(#(#params)*) -> Self {
+        impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
+            #visibility fn new(#(#params)*) -> Self {
                 #values
             }
         }

@@ -144,4 +144,34 @@ mod tests {
         assert_eq!(model.a1.value, 0);
         assert_eq!(model.a2.value, 42);
     }
+
+    #[test]
+    fn test_defew_with_trait() {
+        trait NewTrait {
+            fn new(a: i32) -> Self;
+            fn get123(&self) -> i32 {
+                123
+            }
+        }
+
+        #[derive(Defew)]
+        #[defew(NewTrait)]
+        struct DataA {
+            #[new]
+            a: i32,
+            #[new(42)]
+            b: u64,
+        }
+
+        #[derive(Defew)]
+        struct DataB<T: NewTrait> {
+            #[new(T::new(12))]
+            a: T,
+        }
+
+        let data = DataB::<DataA>::new();
+        assert_eq!(data.a.a, 12);
+        assert_eq!(data.a.b, 42);
+        assert_eq!(data.a.get123(), 123);
+    }
 }
