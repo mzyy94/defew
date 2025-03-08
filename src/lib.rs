@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, TokenStreamExt};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, MacroDelimiter, MetaList};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 
 /// Creates a `new()` constructor with specified default values for a struct.
 ///
@@ -76,12 +76,8 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let mut trait_for = quote!();
     let mut visibility = quote!(pub);
-    match get_meta(&input.attrs, "defew") {
-        Ok(Some(syn::Meta::List(MetaList {
-            tokens,
-            delimiter: MacroDelimiter::Paren(_),
-            ..
-        }))) => {
+    match get_token_result(&input.attrs, "defew") {
+        Ok(Some(tokens)) => {
             trait_for = quote! { #tokens for };
             visibility = quote!();
         }
@@ -96,30 +92,21 @@ pub fn defew(input: TokenStream) -> TokenStream {
         let ident = field.ident.as_ref();
         let punct = ident.map(|_| quote!(:));
 
-        match get_meta(&field.attrs, "new") {
+        match get_token_result(&field.attrs, "new") {
             Ok(None) => {
                 default_values.push(quote! {
                     #ident #punct Default::default(),
                 });
             }
-            Ok(Some(syn::Meta::Path(_))) => {
+            Ok(Some(tokens)) if tokens.is_empty() => {
                 let param = format_ident!("param{i}");
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
                 default_values.push(quote! { #param, });
             }
-            Ok(Some(syn::Meta::List(MetaList {
-                tokens,
-                delimiter: MacroDelimiter::Paren(_),
-                ..
-            }))) => default_values.push(quote! {
+            Ok(Some(tokens)) => default_values.push(quote! {
                 #ident #punct #tokens,
             }),
-            Ok(Some(other)) => {
-                return syn::Error::new_spanned(other, "Defew supports #[new(value)] syntax")
-                    .to_compile_error()
-                    .into()
-            }
             Err(e) => return e.to_compile_error().into(),
         };
     }
@@ -147,12 +134,13 @@ pub fn defew(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-fn get_meta<'a>(
+fn get_token_result<'a>(
     attrs: &'a [syn::Attribute],
     name: &'static str,
-) -> Result<Option<&'a syn::Meta>, syn::Error> {
+) -> Result<Option<&'a proc_macro2::TokenStream>, syn::Error> {
+    use syn::{Error, MacroDelimiter, Meta, MetaList};
     if attrs.len() > 1 {
-        return Err(syn::Error::new_spanned(
+        return Err(Error::new_spanned(
             attrs.last(),
             "Defew accepts one attribute",
         ));
@@ -161,10 +149,21 @@ fn get_meta<'a>(
         return Ok(None);
     };
     if !attr.path().is_ident(name) {
-        return Err(syn::Error::new_spanned(
+        return Err(Error::new_spanned(
             attr,
             format!("Defew only supports #[{name}] here"),
         ));
     }
-    Ok(Some(&attr.meta))
+    match &attr.meta {
+        Meta::Path(_) => Ok(Some(Box::leak(Box::new(quote!())))),
+        Meta::List(MetaList {
+            tokens,
+            delimiter: MacroDelimiter::Paren(_),
+            ..
+        }) => Ok(Some(tokens)),
+        _ => Err(Error::new_spanned(
+            attr,
+            format!("Defew supports #[{name}(..)] syntax"),
+        )),
+    }
 }
