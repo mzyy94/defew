@@ -128,23 +128,23 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
         // If the attribute is #[defew(trait)], we will implement the trait
-        TokenResult::List(tokens) => (quote! { #tokens for }, quote!()),
+        TokenResult::List(tokens) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
         TokenResult::Err(e) => return e.to_compile_error().into(),
         // If the attribute is not present, we will not implement any trait
-        _ => (quote!(), quote!(pub)),
+        _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
     };
 
     let mut default_values = Vec::new();
-    let mut params = Vec::new();
+    let mut params = Vec::new(); // params for the `::new(..)` constructor
     for (i, field) in fields.into_iter().enumerate() {
         let ty = &field.ty;
         let ident = field.ident.as_ref();
-        let punct = ident.map(|_| quote!(:));
+        let punct = ident.map(|_| quote!(:)); // for named struct fields
 
         default_values.push(match get_token_result(&field.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => {
-                let param = format_ident!("param{i}");
+                let param = format_ident!("param{i}"); // for unnamed fields
                 let param = ident.unwrap_or(&param);
                 params.push(quote! { #param: #ty, });
                 quote! { #param, }
