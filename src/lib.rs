@@ -28,22 +28,72 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// assert_eq!(value.c, Some(42));
 /// ```
 ///
-/// ## Require parameters
+/// ## Default values
 ///
 /// ```rust
-/// use defew::Defew;
-///
-/// #[derive(Defew)]
+/// # use defew::Defew;
+/// #
+/// #[derive(Default, PartialEq, Debug, Defew)]
 /// struct Data {
-///     #[new]
 ///     a: i32,
-///     #[new(123)]
 ///     b: u64,
 /// }
 ///
-/// let value = Data::new(42);
+/// assert_eq!(Data::new(), Default::default());
+/// ```
+///
+/// ## Require parameters
+///
+/// ```rust
+/// # use defew::Defew;
+/// #
+/// #[derive(Defew)]
+/// struct Data(#[new] u64, #[new(123)] i32);
+///
+/// let model = Data::new(42);
+/// assert_eq!(model.0, 42);
+/// assert_eq!(model.1, 123);
+/// ```
+///
+/// ## With Generics
+///
+/// ```rust
+/// # use defew::Defew;
+/// #
+/// #[derive(Defew)]
+/// struct Data<T: From<u8>> {
+///     #[new]
+///     a: T,
+///     #[new(98.into())]
+///     b: T,
+/// }
+///
+/// let value = Data::new('a');
+/// assert_eq!(value.a, 'a');
+/// assert_eq!(value.b, 'b');
+/// ```
+///
+/// ## With Trait
+///
+/// ```rust
+/// # use defew::Defew;
+/// #
+/// trait DataTrait: Sized {
+///     fn new(a: i32) -> Self;
+///     fn init_with_42() -> Self {
+///         Self::new(42)
+///     }
+/// }
+///
+/// #[derive(Defew)]
+/// #[defew(DataTrait)]
+/// struct Data {
+///     #[new]
+///     a: i32,
+/// }
+///
+/// let value = Data::init_with_42();
 /// assert_eq!(value.a, 42);
-/// assert_eq!(value.b, 123);
 /// ```
 ///
 /// # Panics
@@ -51,8 +101,8 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// panic if #[derive(Defew)] is used on anything other than a struct
 ///
 /// ```compile_fail
-/// use defew::Defew;
-///
+/// # use defew::Defew;
+/// #
 /// #[derive(Defew)]
 /// enum Data {
 ///   Foo,
@@ -60,9 +110,11 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// }
 /// ```
 ///
-/// ```compile_fail
-/// use defew::Defew;
+/// panic if #[derive(Defew)] is used on a unit struct
 ///
+/// ```compile_fail
+/// # use defew::Defew;
+/// #
 /// #[derive(Defew)]
 /// struct Data;
 /// ```
