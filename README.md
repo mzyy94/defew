@@ -1,5 +1,9 @@
 # Defew = Default + `new()`
 
+[![CI](https://github.com/mzyy94/defew/actions/workflows/ci.yml/badge.svg)](https://github.com/mzyy94/defew/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/defew.svg)](http://crates.io/crates/defew)
+[![docs.rs](https://img.shields.io/docsrs/defew.svg)](https://docs.rs/defew/)
+
 Creates a `new()` constructor with specified default values for a struct.
 
 ```rust
