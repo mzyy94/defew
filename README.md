@@ -31,6 +31,25 @@ assert_eq!(value.0, 42);
 assert_eq!(value.1, 0.5);
 ```
 
+## Syntax
+
+```rust
+use defew::Defew;
+pub trait Trait<T> {
+    fn new(value: T) -> Self;
+}
+
+#[derive(Defew)]
+#[defew(Trait<T>)] // <- optional Trait for the `::new(..)`.
+struct Data<T> {
+    a: i32, // <- field without #[new(..)] attribute must have `Default::default()`.
+    #[new(42)] // <- #[new(value)] specifies the default `value` for the field.
+    b: u64,
+    #[new] // <- #[new] specifies that the field is passed to the `::new(..)` constructor.
+    c: T,
+}
+```
+
 ## Changelog
 
 See [releases page](https://github.com/mzyy94/defew/releases)
