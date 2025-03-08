@@ -1,0 +1,43 @@
+name: Create release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          args: --latest --strip all
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Generate release notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const current = process.env.CURRENT_TAG;
+            const changeLog = process.env.CHANGE_LOG;
+
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: current,
+              name: current,
+              body: changeLog,
+              generate_release_notes: true,
+            });
+        env:
+          CURRENT_TAG: ${{ github.ref_name }}
+          CHANGE_LOG: ${{ steps.git-cliff.outputs.content }}
