@@ -114,6 +114,29 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// assert_eq!(value.a, 42);
 /// ```
 ///
+/// ## Using other fields
+///
+/// ```rust
+/// # use defew::Defew;
+/// #
+/// #[derive(Defew)]
+/// struct Data {
+///     #[new]
+///     price: f32,
+///     #[new(price * 1.25)]
+///     total: f32,
+/// }
+///
+/// let value = Data::new(100.0);
+/// assert_eq!(value.total, 125.0);
+///
+/// #[derive(Defew)]
+/// struct Values(#[new] f32, #[new(0.18)] f32, #[new(_0 + _0 * _1)] f32);
+///
+/// let value = Values::new(100.0);
+/// assert_eq!(value.2, 118.0);
+/// ```
+///
 /// # Panics
 ///
 /// compile fails if #[derive(Defew)] is used on anything other than a struct.
@@ -182,26 +205,25 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let mut default_values = Vec::new();
     let mut params = Vec::new(); // params for the `::new(..)` constructor
+    let mut variables = Vec::new();
     for (i, field) in fields.iter().enumerate() {
         let ty = &field.ty;
         let i = syn::Index::from(i);
         let ident = field.ident.as_ref();
-        let param = ident.map_or(quote!(#i), |idn| quote!(#idn));
+        let param = ident.map_or_else(|| quote!(#i), |idn| quote!(#idn));
+        let arg = format_ident!("_{param}"); // for unnamed fields: e.g. _0, _1, _2
+        let arg = ident.unwrap_or(&arg);
 
-        default_values.push(match get_token_result(&field.attrs, "new") {
+        default_values.push(quote! { #param: #arg, });
+        match get_token_result(&field.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
-            TokenResult::Path => {
-                let arg = format_ident!("_{param}"); // for unnamed fields: e.g. _0, _1, _2
-                let arg = ident.unwrap_or(&arg);
-                params.push(quote! { #arg: #ty, });
-                quote! { #param: #arg, }
-            }
+            TokenResult::Path => params.push(quote! { #arg: #ty, }),
             // If the attribute is #[new(value)], we will use the provided value
-            TokenResult::List(value) => quote! { #param: #value, },
+            TokenResult::List(value) => variables.push(quote! { let #arg = #value; }),
             // If the attribute is not present, we will use the default value
-            TokenResult::NoAttr => quote! { #param: Default::default(), },
+            TokenResult::NoAttr => variables.push(quote! { let #arg = Default::default(); }),
             TokenResult::Err(e) => return e.to_compile_error().into(),
-        });
+        }
     }
 
     let struct_name = &input.ident;
@@ -210,6 +232,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
             #visibility fn new(#(#params)*) -> Self {
+                #(#variables)*
                 Self { #(#default_values)* }
             }
         }
