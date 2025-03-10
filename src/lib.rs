@@ -203,7 +203,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
         _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
     };
 
-    let mut default_values = Vec::new();
+    let mut field_values = Vec::new();
     let mut params = Vec::new(); // params for the `::new(..)` constructor
     let mut variables = Vec::new();
     for (i, field) in fields.iter().enumerate() {
@@ -214,7 +214,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
         let arg = format_ident!("_{param}"); // for unnamed fields: e.g. _0, _1, _2
         let arg = ident.unwrap_or(&arg);
 
-        default_values.push(quote! { #param: #arg, });
+        field_values.push(quote! { #param: #arg, });
         match get_token_result(&field.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => params.push(quote! { #arg: #ty, }),
@@ -233,7 +233,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
             #visibility fn new(#(#params)*) -> Self {
                 #(#variables)*
-                Self { #(#default_values)* }
+                Self { #(#field_values)* }
             }
         }
     };
