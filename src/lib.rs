@@ -209,10 +209,11 @@ pub fn defew(input: TokenStream) -> TokenStream {
     for (i, field) in fields.iter().enumerate() {
         let ty = &field.ty;
         let i = syn::Index::from(i);
-        let ident = field.ident.as_ref();
-        let param = ident.map_or_else(|| quote!(#i), |idn| quote!(#idn));
-        let arg = format_ident!("_{param}"); // for unnamed fields: e.g. _0, _1, _2
-        let arg = ident.unwrap_or(&arg);
+        #[allow(clippy::option_if_let_else)]
+        let (param, arg) = match &field.ident {
+            Some(ident) => (quote!(#ident), ident),
+            None => (quote!(#i), &format_ident!("_{}", i)), // for unnamed fields: e.g. _0, _1, _2
+        };
 
         field_values.push(quote! { #param: #arg, });
         match get_token_result(&field.attrs, "new") {
