@@ -230,6 +230,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
 
     let expanded = quote! {
+        #[automatically_derived]
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
             #visibility fn new(#(#params),*) -> Self {
                 #(#variables)*
