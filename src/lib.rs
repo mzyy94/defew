@@ -217,7 +217,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
         field_values.push(quote! { #param: #arg, });
         match get_token_result(&field.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
-            TokenResult::Path => params.push(quote! { #arg: #ty, }),
+            TokenResult::Path => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
             TokenResult::List(value) => variables.push(quote! { let #arg = #value; }),
             // If the attribute is not present, we will use the default value
@@ -231,7 +231,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
-            #visibility fn new(#(#params)*) -> Self {
+            #visibility fn new(#(#params),*) -> Self {
                 #(#variables)*
                 Self { #(#field_values)* }
             }
