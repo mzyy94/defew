@@ -251,6 +251,20 @@ enum TokenResult<'a> {
 fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> TokenResult<'a> {
     use syn::{Error, MacroDelimiter, Meta, MetaList};
     use TokenResult::{Err, List, NoAttr, Path};
+
+    let another = match name {
+        "new" => "defew",
+        "defew" => "new",
+        _ => unreachable!(),
+    };
+    if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident(another)) {
+        return Err(Error::new_spanned(
+            attr,
+            format!("Defew only supports #[{name}] here"),
+        ));
+    }
+
+    let attrs: Vec<_> = attrs.iter().filter(|a| a.path().is_ident(name)).collect();
     if attrs.len() > 1 {
         return Err(Error::new_spanned(
             attrs.last(),
@@ -260,12 +274,6 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
     let Some(attr) = attrs.first() else {
         return NoAttr;
     };
-    if !attr.path().is_ident(name) {
-        return Err(Error::new_spanned(
-            attr,
-            format!("Defew only supports #[{name}] here"),
-        ));
-    }
     match &attr.meta {
         Meta::Path(_) => Path,
         Meta::List(MetaList {
