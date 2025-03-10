@@ -23,7 +23,7 @@ jobs:
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      - name: Generate release notes
+      - name: Create release
         uses: actions/github-script@v7
         with:
           script: |
@@ -41,3 +41,11 @@ jobs:
         env:
           CURRENT_TAG: ${{ github.ref_name }}
           CHANGE_LOG: ${{ steps.git-cliff.outputs.content }}
+
+      - name: Publish crate
+        run: |
+          git stash -u
+          cargo login $CARGO_TOKEN
+          cargo publish
+        env:
+          CARGO_TOKEN: ${{ secrets.CARGO_TOKEN }}
