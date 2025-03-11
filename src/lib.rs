@@ -278,19 +278,17 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
             "Defew accepts one attribute",
         ));
     }
-    let Some(attr) = attrs.first() else {
-        return NoAttr;
-    };
-    match &attr.meta {
-        Meta::Path(_) => Path,
-        Meta::List(MetaList {
+    match &attrs.first().map(|attr| &attr.meta) {
+        Some(Meta::Path(_)) => Path,
+        Some(Meta::List(MetaList {
             tokens,
             delimiter: MacroDelimiter::Paren(_),
             ..
-        }) if !tokens.is_empty() => List(tokens),
-        _ => Err(Error::new_spanned(
-            attr,
+        })) if !tokens.is_empty() => List(tokens),
+        Some(meta) => Err(Error::new_spanned(
+            meta,
             format!("Defew supports #[{name}(..)] syntax"),
         )),
+        None => NoAttr,
     }
 }
