@@ -214,15 +214,20 @@ pub fn defew(input: TokenStream) -> TokenStream {
             Some(ident) => (quote!(#ident), ident),
             None => (quote!(#i), &format_ident!("_{}", i)), // for unnamed fields: e.g. _0, _1, _2
         };
-
         field_values.push(quote! { #param: #arg, });
+
+        #[cfg(feature = "std")]
+        let default = quote! { <#ty as ::std::default::Default>::default() };
+        #[cfg(not(feature = "std"))]
+        let default = quote! { <#ty as ::core::default::Default>::default() };
+
         match get_token_result(&field.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
             TokenResult::List(value) => variables.push(quote! { let #arg = #value; }),
             // If the attribute is not present, we will use the default value
-            TokenResult::NoAttr => variables.push(quote! { let #arg = Default::default(); }),
+            TokenResult::NoAttr => variables.push(quote! { let #arg = #default; }),
             TokenResult::Err(e) => return e.to_compile_error().into(),
         }
     }
