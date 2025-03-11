@@ -237,6 +237,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[automatically_derived]
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
+            #[doc = "Creates a new instance of the struct with default values"]
             #visibility fn new(#(#params),*) -> Self {
                 #(#variables)*
                 Self { #(#field_values)* }
