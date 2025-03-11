@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Index};
 
 /// Creates a `new()` constructor with specified default values for a struct.
 ///
@@ -206,9 +206,8 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let mut field_values = Vec::new();
     let mut params = Vec::new(); // params for the `::new(..)` constructor
     let mut variables = Vec::new();
-    for (i, field) in fields.iter().enumerate() {
+    for (i, field) in fields.iter().enumerate().map(|(i, f)| (Index::from(i), f)) {
         let ty = &field.ty;
-        let i = syn::Index::from(i);
         #[allow(clippy::option_if_let_else)]
         let (param, arg) = match &field.ident {
             Some(ident) => (quote!(#ident), ident),
