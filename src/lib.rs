@@ -137,7 +137,7 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 /// assert_eq!(value.2, 118.0);
 /// ```
 ///
-/// # Panics
+/// # Errors
 ///
 /// compile fails if #[derive(Defew)] is used on anything other than a struct.
 ///
@@ -189,10 +189,10 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 pub fn defew(input: TokenStream) -> TokenStream {
     let input = &parse_macro_input!(input as DeriveInput);
     let Data::Struct(DataStruct { fields, .. }) = &input.data else {
-        panic!("Defew only supports structs")
+        return quote! ( compile_error!("Defew only supports structs"); ).into();
     };
     if matches!(fields, Fields::Unit) {
-        panic!("Defew does not support unit structs")
+        return quote! ( compile_error!("Defew does not support unit structs"); ).into();
     }
 
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
