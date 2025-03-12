@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Index};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Index, Member};
 
 /// Creates a `new()` constructor with specified default values for a struct.
 ///
@@ -203,24 +203,26 @@ pub fn defew(input: TokenStream) -> TokenStream {
         _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
     };
 
-    let mut field_values = Vec::new();
+    let field_values = fields.members().map(|member| match member {
+        Member::Named(ident) => quote! { #ident: #ident, },
+        Member::Unnamed(i) => {
+            let ident = format_ident!("_{}", i);
+            quote! { #i: #ident, }
+        }
+    });
+
     let mut params = Vec::new(); // params for the `::new(..)` constructor
     let mut variables = Vec::new();
-    for (i, field) in fields.iter().enumerate().map(|(i, f)| (Index::from(i), f)) {
-        let ty = &field.ty;
-        #[allow(clippy::option_if_let_else)]
-        let (param, arg) = match &field.ident {
-            Some(ident) => (quote!(#ident), ident),
-            None => (quote!(#i), &format_ident!("_{}", i)), // for unnamed fields: e.g. _0, _1, _2
-        };
-        field_values.push(quote! { #param: #arg, });
+    for (i, f) in fields.iter().enumerate().map(|(i, f)| (Index::from(i), f)) {
+        let ty = &f.ty;
+        let arg = f.ident.clone().unwrap_or_else(|| format_ident!("_{}", i));
 
         #[cfg(feature = "std")]
         let default = quote! { <#ty as ::std::default::Default>::default() };
         #[cfg(not(feature = "std"))]
         let default = quote! { <#ty as ::core::default::Default>::default() };
 
-        match get_token_result(&field.attrs, "new") {
+        match get_token_result(&f.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
