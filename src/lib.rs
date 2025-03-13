@@ -202,6 +202,8 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
         // If the attribute is #[defew(trait)], we will implement the trait
         TokenResult::List(tokens) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
+        // If the attribute is #[defew], we will implement the new() constructor with private visibility
+        TokenResult::Path => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
         // If the attribute is #[defew = "crate"], we will implement the new() constructor with specified visibility
         TokenResult::NameValue(Lit::Str(s)) => {
             let restriction: Option<proc_macro2::TokenStream> = s.parse().ok();
@@ -524,6 +526,30 @@ mod tests {
 
         let output = quote! {
             ::core::compile_error! {"Defew does not support this syntax"}
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_with_no_visibility() {
+        let input = parse_quote! {
+            #[defew]
+            struct Data {
+                a: i32,
+            }
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl Data {
+                #[doc = "Creates a new instance of the struct with default values"]
+                #[allow(non_upper_case_globals)]
+                fn new() -> Self {
+                    let a = <i32 as ::core::default::Default>::default();
+                    Self { a: a, }
+                }
+            }
         };
 
         assert_eq!(defew_internal(&input).to_string(), output.to_string());
