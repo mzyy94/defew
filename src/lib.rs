@@ -354,12 +354,10 @@ mod tests {
                     Self { a: a, b: b, c: c }
                 }
             }
-        };
+        }
+        .to_string();
 
-        assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap().to_string(), output);
     }
 
     #[test]
@@ -379,12 +377,10 @@ mod tests {
                     Self { 0: _0, 1: _1 }
                 }
             }
-        };
+        }
+        .to_string();
 
-        assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap().to_string(), output);
     }
 
     #[test]
@@ -407,12 +403,10 @@ mod tests {
                     Self { a: a }
                 }
             }
-        };
+        }
+        .to_string();
 
-        assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap().to_string(), output);
     }
 
     #[test]
@@ -428,21 +422,19 @@ mod tests {
         };
 
         let output = quote! {
-            #[automatically_derived]
-            impl<T: From<u8> > DataTrait<T> for Data<T> {
-                #[doc = "Creates a new instance of the struct with default values"]
-                #[allow(non_upper_case_globals)]
-                fn new(a: T) -> Self {
-                    let b: T = 98.into();
-                    Self { a: a, b: b }
-                }
-            }
-        };
+                    #[automatically_derived]
+                    impl<T: From<u8> > DataTrait<T> for Data<T> {
+                        #[doc = "Creates a new instance of the struct with default values"]
+                        #[allow(non_upper_case_globals)]
+                        fn new(a: T) -> Self {
+                            let b: T = 98.into();
+                            Self { a: a, b: b }
+                        }
+                    }
+        }
+        .to_string();
 
-        assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap().to_string(), output);
     }
 
     #[test]
@@ -469,12 +461,10 @@ mod tests {
                     Self { a: a, b: b, c: c }
                 }
             }
-        };
+        }
+        .to_string();
 
-        assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap().to_string(), output);
     }
 
     #[test]
@@ -493,12 +483,10 @@ mod tests {
                     Self { 0: _0, 1: _1 }
                 }
             }
-        };
+        }
+        .to_string();
 
-        assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap().to_string(), output);
     }
 
     #[test]
@@ -509,10 +497,7 @@ mod tests {
 
         let output = "Defew does not support unit structs";
 
-        assert_eq!(
-            defew_internal(&input).unwrap_err().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap_err().to_string(), output);
     }
 
     #[test]
@@ -526,10 +511,7 @@ mod tests {
 
         let output = "Defew only supports structs";
 
-        assert_eq!(
-            defew_internal(&input).unwrap_err().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap_err().to_string(), output);
     }
 
     #[test]
@@ -544,10 +526,7 @@ mod tests {
 
         let output = "Defew accepts one attribute";
 
-        assert_eq!(
-            defew_internal(&input).unwrap_err().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap_err().to_string(), output);
     }
 
     #[test]
@@ -561,10 +540,7 @@ mod tests {
 
         let output = "Defew does not support this syntax";
 
-        assert_eq!(
-            defew_internal(&input).unwrap_err().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap_err().to_string(), output);
     }
 
     #[test]
@@ -578,10 +554,7 @@ mod tests {
 
         let output = "Defew only supports #[new] here";
 
-        assert_eq!(
-            defew_internal(&input).unwrap_err().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap_err().to_string(), output);
     }
 
     #[test]
@@ -603,11 +576,9 @@ mod tests {
                     Self { a: a }
                 }
             }
-        };
+        }
+        .to_string();
 
-        assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
-            output.to_string()
-        );
+        assert_eq!(defew_internal(&input).unwrap().to_string(), output);
     }
 }
