@@ -225,11 +225,10 @@ pub fn defew(input: TokenStream) -> TokenStream {
         match get_token_result(&f.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => params.push(quote! ( #arg: #ty )),
-            // If the attribute is #[new(value)], and value is a literal, we will use the provided value as const
-            TokenResult::List(value) if syn::parse2::<syn::Lit>(value.clone()).is_ok() => variables
-                .push(quote! { #[allow(non_upper_case_globals)] const #arg: #ty = #value; }),
             // If the attribute is #[new(value)], we will use the provided value
             TokenResult::List(value) => variables.push(quote! { let #arg = #value; }),
+            // If the attribute is #[new = value], we will use the provided value as const
+            TokenResult::NameValue(value) => variables.push(quote! { const #arg: #ty = #value; }),
             // If the attribute is not present, we will use the default value
             TokenResult::NoAttr => variables.push(quote! { let #arg = #default; }),
             TokenResult::Err(e) => return e.to_compile_error().into(),
@@ -243,6 +242,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
         #[automatically_derived]
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
             #[doc = "Creates a new instance of the struct with default values"]
+            #[allow(non_upper_case_globals)]
             #visibility fn new(#(#params),*) -> Self {
                 #(#variables)*
                 Self { #(#field_values)* }
@@ -256,13 +256,14 @@ pub fn defew(input: TokenStream) -> TokenStream {
 enum TokenResult<'a> {
     Path,
     List(&'a proc_macro2::TokenStream),
+    NameValue(&'a syn::Expr), // NOTE: syn::Expr should be literal because rustc only allows literals currently
     NoAttr,
     Err(syn::Error),
 }
 
 fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> TokenResult<'a> {
-    use syn::{Error, MacroDelimiter, Meta, MetaList};
-    use TokenResult::{Err, List, NoAttr, Path};
+    use syn::{Error, MacroDelimiter, Meta, MetaList, MetaNameValue};
+    use TokenResult::{Err, List, NameValue, NoAttr, Path};
 
     let another = match name {
         "new" => "defew",
@@ -290,6 +291,7 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
             delimiter: MacroDelimiter::Paren(_),
             ..
         })) if !tokens.is_empty() => List(tokens),
+        Some(Meta::NameValue(MetaNameValue { value, .. })) => NameValue(value),
         Some(meta) => Err(Error::new_spanned(
             meta,
             format!("Defew supports #[{name}(..)] syntax"),
