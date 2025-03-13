@@ -225,10 +225,6 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
     for (i, f) in fields.iter().enumerate().map(|(i, f)| (Index::from(i), f)) {
         let ty = &f.ty;
         let arg = f.ident.clone().unwrap_or_else(|| format_ident!("_{}", i));
-
-        #[cfg(feature = "std")]
-        let default = quote! { <#ty as ::std::default::Default>::default() };
-        #[cfg(not(feature = "std"))]
         let default = quote! { <#ty as ::core::default::Default>::default() };
 
         match get_token_result(&f.attrs, "new") {
@@ -354,7 +350,7 @@ mod tests {
                 #[doc = "Creates a new instance of the struct with default values"]
                 #[allow(non_upper_case_globals)]
                 pub fn new() -> Self {
-                    let a = <i32 as ::std::default::Default>::default();
+                    let a = <i32 as ::core::default::Default>::default();
                     let b = "ABC".into();
                     let c = Some(42);
                     Self { a: a, b: b, c: c, }
@@ -378,7 +374,7 @@ mod tests {
                 #[allow(non_upper_case_globals)]
                 pub fn new() -> Self {
                     let _0 = 42;
-                    let _1 = <i32 as ::std::default::Default>::default();
+                    let _1 = <i32 as ::core::default::Default>::default();
                     Self { 0: _0, 1: _1, }
                 }
             }
