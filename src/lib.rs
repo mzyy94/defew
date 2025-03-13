@@ -225,6 +225,9 @@ pub fn defew(input: TokenStream) -> TokenStream {
         match get_token_result(&f.attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => params.push(quote! ( #arg: #ty )),
+            // If the attribute is #[new(value)], and value is a literal, we will use the provided value as const
+            TokenResult::List(value) if syn::parse2::<syn::Lit>(value.clone()).is_ok() => variables
+                .push(quote! { #[allow(non_upper_case_globals)] const #arg: #ty = #value; }),
             // If the attribute is #[new(value)], we will use the provided value
             TokenResult::List(value) => variables.push(quote! { let #arg = #value; }),
             // If the attribute is not present, we will use the default value
