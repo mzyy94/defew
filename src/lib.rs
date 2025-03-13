@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Lit, Member};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Lit, Member, Result};
 
 /// Creates a `new()` constructor with specified default values for a struct.
 ///
@@ -201,15 +201,15 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
 
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
         // If the attribute is #[defew(trait)], we will implement the trait
-        TokenResult::List(tokens) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
+        Ok(Some(MetaToken::List(tokens))) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
         // If the attribute is #[defew], we will implement the new() constructor with private visibility
-        TokenResult::Path => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
+        Ok(Some(MetaToken::Path)) => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
         // If the attribute is #[defew = "crate"], we will implement the new() constructor with specified visibility
-        TokenResult::NameValue(Lit::Str(s)) => {
+        Ok(Some(MetaToken::NameValue(Lit::Str(s)))) => {
             let restriction: Option<proc_macro2::TokenStream> = s.parse().ok();
             (quote!(), quote!(pub(#restriction))) // => `impl Struct`, `pub(crate) fn new(..)`
         }
-        TokenResult::Err(e) => return e.to_compile_error(),
+        Err(e) => return e.to_compile_error(),
         // If the attribute is not present, we will not implement any trait
         _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
     };
@@ -228,14 +228,14 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
     for (Field { ty, attrs, .. }, (_, arg)) in fields.iter().zip(&field_values) {
         match get_token_result(attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
-            TokenResult::Path => params.push(quote! ( #arg: #ty )),
+            Ok(Some(MetaToken::Path)) => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
-            TokenResult::List(value) => variables.push(quote! { let #arg: #ty = #value; }),
+            Ok(Some(MetaToken::List(value))) => variables.push(quote! { let #arg: #ty = #value; }),
             // If the attribute is #[new = value], we will use the provided value as const
-            TokenResult::NameValue(value) => variables.push(quote! { const #arg: #ty = #value; }),
+            Ok(Some(MetaToken::NameValue(v))) => variables.push(quote! { const #arg: #ty = #v; }),
             // If the attribute is not present, we will use the default value
-            TokenResult::NoAttr => variables.push(quote! { let #arg: #ty = #default; }),
-            TokenResult::Err(e) => return e.to_compile_error(),
+            Ok(None) => variables.push(quote! { let #arg: #ty = #default; }),
+            Err(e) => return e.to_compile_error(),
         }
     }
 
@@ -256,17 +256,17 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
     }
 }
 
-enum TokenResult<'a> {
+enum MetaToken<'a> {
     Path,
     List(&'a proc_macro2::TokenStream),
     NameValue(&'a syn::Lit),
-    NoAttr,
-    Err(syn::Error),
 }
+
+type TokenResult<'a> = Result<Option<MetaToken<'a>>>;
 
 fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> TokenResult<'a> {
     use syn::{Error, Expr, ExprLit, MacroDelimiter, Meta, MetaList, MetaNameValue};
-    use TokenResult::{Err, List, NameValue, NoAttr, Path};
+    use MetaToken::{List, NameValue, Path};
 
     let another = match name {
         "new" => "defew",
@@ -288,21 +288,21 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
         ));
     }
     match &attrs.first().map(|attr| &attr.meta) {
-        Some(Meta::Path(_)) => Path,
+        Some(Meta::Path(_)) => Ok(Some(Path)),
         Some(Meta::List(MetaList {
             tokens,
             delimiter: MacroDelimiter::Paren(_),
             ..
-        })) if !tokens.is_empty() => List(tokens),
+        })) if !tokens.is_empty() => Ok(Some(List(tokens))),
         Some(Meta::NameValue(MetaNameValue {
             value: Expr::Lit(ExprLit { lit, .. }),
             ..
-        })) => NameValue(lit),
+        })) => Ok(Some(NameValue(lit))),
         Some(meta) => Err(Error::new_spanned(
             meta,
             "Defew does not support this syntax",
         )),
-        None => NoAttr,
+        None => Ok(None),
     }
 }
 
@@ -314,19 +314,22 @@ mod tests {
 
     #[test]
     fn test_get_token_result() {
-        use crate::TokenResult::{Err, List, NameValue, NoAttr, Path};
+        use crate::MetaToken::{List, NameValue, Path};
         use syn::parse_quote as pq;
 
         macro_rules! am {
             ($left:expr, $right:pat) => {
                 assert!(matches!($left, $right));
             };
+            ($left:expr, $right:pat,?) => {
+                assert!(matches!($left, Ok(Some($right))));
+            };
         }
 
-        am!(get_token_result(&[pq!(#[new])], "new"), Path);
-        am!(get_token_result(&[pq!(#[new(42)])], "new"), List(_));
-        am!(get_token_result(&[pq!(#[new = 42])], "new"), NameValue(_));
-        am!(get_token_result(&[pq!(#[serde])], "defew"), NoAttr);
+        am!(get_token_result(&[pq!(#[new])], "new"), Path,?);
+        am!(get_token_result(&[pq!(#[new(42)])], "new"), List(_),?);
+        am!(get_token_result(&[pq!(#[new = 42])], "new"), NameValue(_),?);
+        am!(get_token_result(&[pq!(#[serde])], "defew"), Ok(None));
         am!(get_token_result(&[pq!(#[defew])], "new"), Err(_));
         am!(get_token_result(&[pq!(#[new]), pq!(#[new])], "new"), Err(_));
         am!(get_token_result(&[pq!(#[new[1]])], "new"), Err(_));
