@@ -307,3 +307,27 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
         None => NoAttr,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_get_token_result() {
+        use crate::get_token_result;
+        use crate::TokenResult::{Err, List, NameValue, NoAttr, Path};
+        use syn::parse_quote as pq;
+
+        macro_rules! am {
+            ($left:expr, $right:pat) => {
+                assert!(matches!($left, $right));
+            };
+        }
+
+        am!(get_token_result(&[pq!(#[new])], "new"), Path);
+        am!(get_token_result(&[pq!(#[new(42)])], "new"), List(_));
+        am!(get_token_result(&[pq!(#[new = 42])], "new"), NameValue(_));
+        am!(get_token_result(&[pq!(#[serde])], "defew"), NoAttr);
+        am!(get_token_result(&[pq!(#[defew])], "new"), Err(_));
+        am!(get_token_result(&[pq!(#[new]), pq!(#[new])], "new"), Err(_));
+        am!(get_token_result(&[pq!(#[new[1]])], "new"), Err(_));
+    }
+}
