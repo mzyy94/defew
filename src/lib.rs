@@ -188,11 +188,15 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Index, Lit, 
 #[proc_macro_derive(Defew, attributes(new, defew))]
 pub fn defew(input: TokenStream) -> TokenStream {
     let input = &parse_macro_input!(input as DeriveInput);
+    defew_internal(input).into()
+}
+
+fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
     let Data::Struct(DataStruct { fields, .. }) = &input.data else {
-        return quote! ( compile_error!("Defew only supports structs"); ).into();
+        return quote! ( compile_error!("Defew only supports structs"); );
     };
     if matches!(fields, Fields::Unit) {
-        return quote! ( compile_error!("Defew does not support unit structs"); ).into();
+        return quote! ( compile_error!("Defew does not support unit structs"); );
     }
 
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
@@ -203,7 +207,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
             let restriction: Option<proc_macro2::TokenStream> = s.parse().ok();
             (quote!(), quote!(pub(#restriction))) // => `impl Struct`, `pub(crate) fn new(..)`
         }
-        TokenResult::Err(e) => return e.to_compile_error().into(),
+        TokenResult::Err(e) => return e.to_compile_error(),
         // If the attribute is not present, we will not implement any trait
         _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
     };
@@ -236,14 +240,14 @@ pub fn defew(input: TokenStream) -> TokenStream {
             TokenResult::NameValue(value) => variables.push(quote! { const #arg: #ty = #value; }),
             // If the attribute is not present, we will use the default value
             TokenResult::NoAttr => variables.push(quote! { let #arg = #default; }),
-            TokenResult::Err(e) => return e.to_compile_error().into(),
+            TokenResult::Err(e) => return e.to_compile_error(),
         }
     }
 
     let struct_name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
 
-    let expanded = quote! {
+    quote! {
         #[automatically_derived]
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
             #[doc = "Creates a new instance of the struct with default values"]
@@ -253,9 +257,7 @@ pub fn defew(input: TokenStream) -> TokenStream {
                 Self { #(#field_values)* }
             }
         }
-    };
-
-    TokenStream::from(expanded)
+    }
 }
 
 enum TokenResult<'a> {
