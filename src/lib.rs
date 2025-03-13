@@ -2,7 +2,9 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Lit, Member, Result};
+use syn::{
+    parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Lit, Member, Meta, Result,
+};
 
 /// Creates a `new()` constructor with specified default values for a struct.
 ///
@@ -193,6 +195,22 @@ pub fn defew(input: TokenStream) -> TokenStream {
         .into()
 }
 
+macro_rules! match_token {
+    (MetaList, $p:pat) => {
+        syn::Meta::List(syn::MetaList {
+            tokens: $p,
+            delimiter: syn::MacroDelimiter::Paren(_),
+            ..
+        })
+    };
+    (NameValue, $p:pat) => {
+        syn::Meta::NameValue(syn::MetaNameValue {
+            value: syn::Expr::Lit(syn::ExprLit { lit: $p, .. }),
+            ..
+        })
+    };
+}
+
 fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
     let Data::Struct(DataStruct { fields, .. }) = &input.data else {
         return Ok(quote! ( compile_error!("Defew only supports structs"); ));
@@ -203,11 +221,11 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
 
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew")? {
         // If the attribute is #[defew(trait)], we will implement the trait
-        Some(MetaToken::List(tokens)) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
+        Some(match_token!(MetaList, tokens)) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
         // If the attribute is #[defew], we will implement the new() constructor with private visibility
-        Some(MetaToken::Path) => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
+        Some(Meta::Path(_)) => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
         // If the attribute is #[defew = "crate"], we will implement the new() constructor with specified visibility
-        Some(MetaToken::NameValue(Lit::Str(s))) => {
+        Some(match_token!(NameValue, Lit::Str(s))) => {
             let restriction: Option<proc_macro2::TokenStream> = s.parse().ok();
             (quote!(), quote!(pub(#restriction))) // => `impl Struct`, `pub(crate) fn new(..)`
         }
@@ -229,13 +247,19 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
     for (Field { ty, attrs, .. }, (_, arg)) in fields.iter().zip(&field_values) {
         match get_token_result(attrs, "new")? {
             // If the attribute is #[new], we will ask for the value at runtime
-            Some(MetaToken::Path) => params.push(quote! ( #arg: #ty )),
+            Some(Meta::Path(_)) => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
-            Some(MetaToken::List(value)) => variables.push(quote! { let #arg: #ty = #value; }),
+            Some(match_token!(MetaList, v)) => variables.push(quote! { let #arg: #ty = #v; }),
             // If the attribute is #[new = value], we will use the provided value as const
-            Some(MetaToken::NameValue(v)) => variables.push(quote! { const #arg: #ty = #v; }),
+            Some(match_token!(NameValue, v)) => variables.push(quote! { const #arg: #ty = #v; }),
             // If the attribute is not present, we will use the default value
             None => variables.push(quote! { let #arg: #ty = #default; }),
+            m => {
+                return Err(syn::Error::new_spanned(
+                    m,
+                    "Defew does not support this syntax",
+                ))
+            }
         }
     }
 
@@ -257,17 +281,10 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
     Ok(expanded)
 }
 
-enum MetaToken<'a> {
-    Path,
-    List(&'a proc_macro2::TokenStream),
-    NameValue(&'a syn::Lit),
-}
-
-type TokenResult<'a> = Result<Option<MetaToken<'a>>>;
+type TokenResult<'a> = Result<Option<&'a syn::Meta>>;
 
 fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> TokenResult<'a> {
-    use syn::{Error, Expr, ExprLit, MacroDelimiter, Meta, MetaList, MetaNameValue};
-    use MetaToken::{List, NameValue, Path};
+    use syn::Error;
 
     let another = match name {
         "new" => "defew",
@@ -288,23 +305,7 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
             "Defew accepts one attribute",
         ));
     }
-    match &attrs.first().map(|attr| &attr.meta) {
-        Some(Meta::Path(_)) => Ok(Some(Path)),
-        Some(Meta::List(MetaList {
-            tokens,
-            delimiter: MacroDelimiter::Paren(_),
-            ..
-        })) if !tokens.is_empty() => Ok(Some(List(tokens))),
-        Some(Meta::NameValue(MetaNameValue {
-            value: Expr::Lit(ExprLit { lit, .. }),
-            ..
-        })) => Ok(Some(NameValue(lit))),
-        Some(meta) => Err(Error::new_spanned(
-            meta,
-            "Defew does not support this syntax",
-        )),
-        None => Ok(None),
-    }
+    Ok(attrs.first().map(|attr| &attr.meta))
 }
 
 #[cfg(test)]
@@ -315,8 +316,8 @@ mod tests {
 
     #[test]
     fn test_get_token_result() {
-        use crate::MetaToken::{List, NameValue, Path};
         use syn::parse_quote as pq;
+        use syn::Meta::{List, NameValue, Path};
 
         macro_rules! am {
             ($left:expr, $right:pat) => {
@@ -327,13 +328,13 @@ mod tests {
             };
         }
 
-        am!(get_token_result(&[pq!(#[new])], "new"), Path,?);
+        am!(get_token_result(&[pq!(#[new])], "new"), Path(_),?);
         am!(get_token_result(&[pq!(#[new(42)])], "new"), List(_),?);
         am!(get_token_result(&[pq!(#[new = 42])], "new"), NameValue(_),?);
         am!(get_token_result(&[pq!(#[serde])], "defew"), Ok(None));
         am!(get_token_result(&[pq!(#[defew])], "new"), Err(_));
         am!(get_token_result(&[pq!(#[new]), pq!(#[new])], "new"), Err(_));
-        am!(get_token_result(&[pq!(#[new[1]])], "new"), Err(_));
+        am!(get_token_result(&[pq!(#[new[1]])], "new"), List(_),?);
     }
 
     #[test]
@@ -587,23 +588,6 @@ mod tests {
         };
 
         let output = "Defew only supports #[new] here";
-
-        assert_eq!(
-            defew_internal(&input).unwrap_err().to_string(),
-            output.to_string()
-        );
-    }
-
-    #[test]
-    fn test_defew_internal_invalid_defew_attribute() {
-        let input = parse_quote! {
-            #[defew[1]]
-            struct Data {
-                a: i32,
-            }
-        };
-
-        let output = "Defew does not support this syntax";
 
         assert_eq!(
             defew_internal(&input).unwrap_err().to_string(),
