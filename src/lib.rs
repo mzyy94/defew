@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Index, Member};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Index, Lit, Member};
 
 /// Creates a `new()` constructor with specified default values for a struct.
 ///
@@ -198,6 +198,11 @@ pub fn defew(input: TokenStream) -> TokenStream {
     let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
         // If the attribute is #[defew(trait)], we will implement the trait
         TokenResult::List(tokens) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
+        // If the attribute is #[defew = "crate"], we will implement the new() constructor with specified visibility
+        TokenResult::NameValue(Lit::Str(s)) => {
+            let restriction: Option<proc_macro2::TokenStream> = s.parse().ok();
+            (quote!(), quote!(pub(#restriction))) // => `impl Struct`, `pub(crate) fn new(..)`
+        }
         TokenResult::Err(e) => return e.to_compile_error().into(),
         // If the attribute is not present, we will not implement any trait
         _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
