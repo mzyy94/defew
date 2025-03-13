@@ -242,7 +242,7 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
 
     let struct_name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
-    let field_values = field_values.iter().map(|(f, v)| quote! { #f: #v, });
+    let field_values = field_values.iter().map(|(f, v)| quote! { #f: #v });
 
     quote! {
         #[automatically_derived]
@@ -251,7 +251,7 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
             #[allow(non_upper_case_globals)]
             #visibility fn new(#(#params),*) -> Self {
                 #(#variables)*
-                Self { #(#field_values)* }
+                Self { #(#field_values),* }
             }
         }
     }
@@ -354,7 +354,7 @@ mod tests {
                     let a = <i32 as ::core::default::Default>::default();
                     let b = "ABC".into();
                     let c = Some(42);
-                    Self { a: a, b: b, c: c, }
+                    Self { a: a, b: b, c: c }
                 }
             }
         };
@@ -376,7 +376,7 @@ mod tests {
                 pub fn new() -> Self {
                     let _0 = 42;
                     let _1 = <i32 as ::core::default::Default>::default();
-                    Self { 0: _0, 1: _1, }
+                    Self { 0: _0, 1: _1 }
                 }
             }
         };
@@ -401,7 +401,7 @@ mod tests {
                 #[allow(non_upper_case_globals)]
                 pub(crate) fn new() -> Self {
                     const a: i32 = 42;
-                    Self { a: a, }
+                    Self { a: a }
                 }
             }
         };
@@ -428,7 +428,7 @@ mod tests {
                 #[allow(non_upper_case_globals)]
                 fn new(a: T) -> Self {
                     let b = 98.into();
-                    Self { a: a, b: b, }
+                    Self { a: a, b: b }
                 }
             }
         };
@@ -546,7 +546,7 @@ mod tests {
                 #[allow(non_upper_case_globals)]
                 fn new() -> Self {
                     let a = <i32 as ::core::default::Default>::default();
-                    Self { a: a, }
+                    Self { a: a }
                 }
             }
         };
