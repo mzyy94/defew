@@ -312,9 +312,12 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
 
 #[cfg(test)]
 mod tests {
+    use crate::{defew_internal, get_token_result};
+    use quote::quote;
+    use syn::parse_quote;
+
     #[test]
     fn test_get_token_result() {
-        use crate::get_token_result;
         use crate::TokenResult::{Err, List, NameValue, NoAttr, Path};
         use syn::parse_quote as pq;
 
@@ -331,5 +334,202 @@ mod tests {
         am!(get_token_result(&[pq!(#[defew])], "new"), Err(_));
         am!(get_token_result(&[pq!(#[new]), pq!(#[new])], "new"), Err(_));
         am!(get_token_result(&[pq!(#[new[1]])], "new"), Err(_));
+    }
+
+    #[test]
+    fn test_defew_internal_basic() {
+        let input = parse_quote! {
+            struct Data {
+                a: i32,
+                #[new("ABC".into())]
+                b: String,
+                #[new(Some(42))]
+                c: Option<u64>,
+            }
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl Data {
+                #[doc = "Creates a new instance of the struct with default values"]
+                #[allow(non_upper_case_globals)]
+                pub fn new() -> Self {
+                    let a = <i32 as ::std::default::Default>::default();
+                    let b = "ABC".into();
+                    let c = Some(42);
+                    Self { a: a, b: b, c: c, }
+                }
+            }
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_basic_unnamed() {
+        let input = parse_quote! {
+            struct Data(#[new(42)] u64, i32);
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl Data {
+                #[doc = "Creates a new instance of the struct with default values"]
+                #[allow(non_upper_case_globals)]
+                pub fn new() -> Self {
+                    let _0 = 42;
+                    let _1 = <i32 as ::std::default::Default>::default();
+                    Self { 0: _0, 1: _1, }
+                }
+            }
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_with_visibility_and_const() {
+        let input = parse_quote! {
+            #[defew = "crate"]
+            struct Data {
+                #[new = 42]
+                a: i32,
+            }
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl Data {
+                #[doc = "Creates a new instance of the struct with default values"]
+                #[allow(non_upper_case_globals)]
+                pub(crate) fn new() -> Self {
+                    const a: i32 = 42;
+                    Self { a: a, }
+                }
+            }
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_with_trait_generics() {
+        let input = parse_quote! {
+            #[defew(DataTrait<T>)]
+            struct Data<T: From<u8>> {
+                #[new]
+                a: T,
+                #[new(98.into())]
+                b: T,
+            }
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl<T: From<u8> > DataTrait<T> for Data<T> {
+                #[doc = "Creates a new instance of the struct with default values"]
+                #[allow(non_upper_case_globals)]
+                fn new(a: T) -> Self {
+                    let b = 98.into();
+                    Self { a: a, b: b, }
+                }
+            }
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_with_unit_struct() {
+        let input = parse_quote! {
+            struct Data;
+        };
+
+        let output = quote! {
+            compile_error!("Defew does not support unit structs");
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_with_enum() {
+        let input = parse_quote! {
+            enum Data {
+                Foo,
+                Bar,
+            }
+        };
+
+        let output = quote! {
+            compile_error!("Defew only supports structs");
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_with_multiple_attributes() {
+        let input = parse_quote! {
+            struct Data {
+                #[new(42)]
+                #[new(11)]
+                a: i32,
+            }
+        };
+
+        let output = quote! {
+            ::core::compile_error! {"Defew accepts one attribute"}
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_with_invalid_syntax() {
+        let input = parse_quote! {
+            struct Data {
+                #[new[1]]
+                a: i32,
+            }
+        };
+
+        let output = quote! {
+            ::core::compile_error! {"Defew does not support this syntax"}
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_with_invalid_attribute() {
+        let input = parse_quote! {
+            struct Data {
+                #[defew]
+                a: i32,
+            }
+        };
+
+        let output = quote! {
+            ::core::compile_error! {"Defew only supports #[new] here"}
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_invalid_defew_attribute() {
+        let input = parse_quote! {
+            #[defew[1]]
+            struct Data {
+                a: i32,
+            }
+        };
+
+        let output = quote! {
+            ::core::compile_error! {"Defew does not support this syntax"}
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
     }
 }
