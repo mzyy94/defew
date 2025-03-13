@@ -219,7 +219,7 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
         return Ok(quote! ( compile_error!("Defew does not support unit structs"); ));
     }
 
-    let (trait_for, visibility) = match get_token_result(&input.attrs, "defew")? {
+    let (trait_for, visibility) = match find_meta(&input.attrs, "defew")? {
         // If the attribute is #[defew(trait)], we will implement the trait
         Some(match_token!(MetaList, tokens)) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
         // If the attribute is #[defew], we will implement the new() constructor with private visibility
@@ -245,7 +245,7 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
     let mut params = Vec::new(); // params for the `::new(..)` constructor
     let mut variables = Vec::new();
     for (Field { ty, attrs, .. }, (_, arg)) in fields.iter().zip(&field_values) {
-        match get_token_result(attrs, "new")? {
+        match find_meta(attrs, "new")? {
             // If the attribute is #[new], we will ask for the value at runtime
             Some(Meta::Path(_)) => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
@@ -281,9 +281,7 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
     Ok(expanded)
 }
 
-type TokenResult<'a> = Result<Option<&'a syn::Meta>>;
-
-fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> TokenResult<'a> {
+fn find_meta<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Result<Option<&'a syn::Meta>> {
     use syn::Error;
 
     let another = match name {
@@ -310,12 +308,12 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
 
 #[cfg(test)]
 mod tests {
-    use crate::{defew_internal, get_token_result};
+    use crate::{defew_internal, find_meta};
     use quote::quote;
     use syn::parse_quote;
 
     #[test]
-    fn test_get_token_result() {
+    fn test_find_meta() {
         use syn::parse_quote as pq;
         use syn::Meta::{List, NameValue, Path};
 
@@ -328,13 +326,13 @@ mod tests {
             };
         }
 
-        am!(get_token_result(&[pq!(#[new])], "new"), Path(_),?);
-        am!(get_token_result(&[pq!(#[new(42)])], "new"), List(_),?);
-        am!(get_token_result(&[pq!(#[new = 42])], "new"), NameValue(_),?);
-        am!(get_token_result(&[pq!(#[serde])], "defew"), Ok(None));
-        am!(get_token_result(&[pq!(#[defew])], "new"), Err(_));
-        am!(get_token_result(&[pq!(#[new]), pq!(#[new])], "new"), Err(_));
-        am!(get_token_result(&[pq!(#[new[1]])], "new"), List(_),?);
+        am!(find_meta(&[pq!(#[new])], "new"), Path(_),?);
+        am!(find_meta(&[pq!(#[new(42)])], "new"), List(_),?);
+        am!(find_meta(&[pq!(#[new = 42])], "new"), NameValue(_),?);
+        am!(find_meta(&[pq!(#[serde])], "defew"), Ok(None));
+        am!(find_meta(&[pq!(#[defew])], "new"), Err(_));
+        am!(find_meta(&[pq!(#[new]), pq!(#[new])], "new"), Err(_));
+        am!(find_meta(&[pq!(#[new[1]])], "new"), List(_),?);
     }
 
     #[test]
