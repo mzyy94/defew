@@ -222,20 +222,19 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
         })
         .collect();
 
+    let default = quote! { ::core::default::Default::default() };
     let mut params = Vec::new(); // params for the `::new(..)` constructor
     let mut variables = Vec::new();
     for (Field { ty, attrs, .. }, (_, arg)) in fields.iter().zip(&field_values) {
-        let default = quote! { <#ty as ::core::default::Default>::default() };
-
         match get_token_result(attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
-            TokenResult::List(value) => variables.push(quote! { let #arg = #value; }),
+            TokenResult::List(value) => variables.push(quote! { let #arg: #ty = #value; }),
             // If the attribute is #[new = value], we will use the provided value as const
             TokenResult::NameValue(value) => variables.push(quote! { const #arg: #ty = #value; }),
             // If the attribute is not present, we will use the default value
-            TokenResult::NoAttr => variables.push(quote! { let #arg = #default; }),
+            TokenResult::NoAttr => variables.push(quote! { let #arg: #ty = #default; }),
             TokenResult::Err(e) => return e.to_compile_error(),
         }
     }
@@ -351,9 +350,9 @@ mod tests {
                 #[doc = "Creates a new instance of the struct with default values"]
                 #[allow(non_upper_case_globals)]
                 pub fn new() -> Self {
-                    let a = <i32 as ::core::default::Default>::default();
-                    let b = "ABC".into();
-                    let c = Some(42);
+                    let a: i32 = ::core::default::Default::default();
+                    let b: String = "ABC".into();
+                    let c: Option<u64> = Some(42);
                     Self { a: a, b: b, c: c }
                 }
             }
@@ -374,8 +373,8 @@ mod tests {
                 #[doc = "Creates a new instance of the struct with default values"]
                 #[allow(non_upper_case_globals)]
                 pub fn new() -> Self {
-                    let _0 = 42;
-                    let _1 = <i32 as ::core::default::Default>::default();
+                    let _0: u64 = 42;
+                    let _1: i32 = ::core::default::Default::default();
                     Self { 0: _0, 1: _1 }
                 }
             }
@@ -427,7 +426,7 @@ mod tests {
                 #[doc = "Creates a new instance of the struct with default values"]
                 #[allow(non_upper_case_globals)]
                 fn new(a: T) -> Self {
-                    let b = 98.into();
+                    let b: T = 98.into();
                     Self { a: a, b: b }
                 }
             }
@@ -456,7 +455,7 @@ mod tests {
                 #[allow(non_upper_case_globals)]
                 pub fn new(a: i32) -> Self {
                     const b: i32 = 42;
-                    let c = a * b + 4;
+                    let c: i32 = a * b + 4;
                     Self { a: a, b: b, c: c }
                 }
             }
@@ -477,7 +476,7 @@ mod tests {
                 #[doc = "Creates a new instance of the struct with default values"]
                 #[allow(non_upper_case_globals)]
                 pub fn new(_0: i32) -> Self {
-                    let _1 = _0 * 2;
+                    let _1: i32 = _0 * 2;
                     Self { 0: _0, 1: _1 }
                 }
             }
@@ -595,7 +594,7 @@ mod tests {
                 #[doc = "Creates a new instance of the struct with default values"]
                 #[allow(non_upper_case_globals)]
                 fn new() -> Self {
-                    let a = <i32 as ::core::default::Default>::default();
+                    let a: i32 = ::core::default::Default::default();
                     Self { a: a }
                 }
             }
