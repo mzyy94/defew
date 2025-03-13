@@ -211,12 +211,21 @@ macro_rules! match_token {
     };
 }
 
+macro_rules! err {
+    ($e:expr, $msg:expr) => {
+        return Err(syn::Error::new_spanned($e, $msg))
+    };
+    ($msg:expr) => {
+        return Err(syn::Error::new(proc_macro2::Span::call_site(), $msg))
+    };
+}
+
 fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
     let Data::Struct(DataStruct { fields, .. }) = &input.data else {
-        return Ok(quote! ( compile_error!("Defew only supports structs"); ));
+        err!("Defew only supports structs");
     };
     if matches!(fields, Fields::Unit) {
-        return Ok(quote! ( compile_error!("Defew does not support unit structs"); ));
+        err!("Defew does not support unit structs");
     }
 
     let (trait_for, visibility) = match find_meta(&input.attrs, "defew")? {
@@ -230,7 +239,8 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
             (quote!(), quote!(pub(#restriction))) // => `impl Struct`, `pub(crate) fn new(..)`
         }
         // If the attribute is not present, we will not implement any trait
-        _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
+        None => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
+        m => err!(m, "Defew does not support this syntax"),
     };
 
     let field_values: Vec<_> = fields
@@ -254,12 +264,7 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
             Some(match_token!(NameValue, v)) => variables.push(quote! { const #arg: #ty = #v; }),
             // If the attribute is not present, we will use the default value
             None => variables.push(quote! { let #arg: #ty = #default; }),
-            m => {
-                return Err(syn::Error::new_spanned(
-                    m,
-                    "Defew does not support this syntax",
-                ))
-            }
+            m => err!(m, "Defew does not support this syntax"),
         }
     }
 
@@ -282,26 +287,18 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
 }
 
 fn find_meta<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Result<Option<&'a syn::Meta>> {
-    use syn::Error;
-
     let another = match name {
         "new" => "defew",
         "defew" => "new",
         _ => unreachable!(),
     };
     if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident(another)) {
-        return Err(Error::new_spanned(
-            attr,
-            format!("Defew only supports #[{name}] here"),
-        ));
+        err!(attr, format!("Defew only supports #[{name}] here"));
     }
 
     let attrs: Vec<_> = attrs.iter().filter(|a| a.path().is_ident(name)).collect();
     if attrs.len() > 1 {
-        return Err(Error::new_spanned(
-            attrs.last(),
-            "Defew accepts one attribute",
-        ));
+        err!(attrs.last(), "Defew accepts one attribute");
     }
     Ok(attrs.first().map(|attr| &attr.meta))
 }
@@ -512,12 +509,10 @@ mod tests {
             struct Data;
         };
 
-        let output = quote! {
-            compile_error!("Defew does not support unit structs");
-        };
+        let output = "Defew does not support unit structs";
 
         assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
+            defew_internal(&input).unwrap_err().to_string(),
             output.to_string()
         );
     }
@@ -531,12 +526,10 @@ mod tests {
             }
         };
 
-        let output = quote! {
-            compile_error!("Defew only supports structs");
-        };
+        let output = "Defew only supports structs";
 
         assert_eq!(
-            defew_internal(&input).unwrap().to_string(),
+            defew_internal(&input).unwrap_err().to_string(),
             output.to_string()
         );
     }
