@@ -437,6 +437,56 @@ mod tests {
     }
 
     #[test]
+    fn test_defew_internal_reference_other_field() {
+        let input = parse_quote! {
+            struct Data {
+                #[new]
+                a: i32,
+                #[new = 42]
+                b: i32,
+                #[new(a * b + 4)]
+                c: i32,
+            }
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl Data {
+                #[doc = "Creates a new instance of the struct with default values"]
+                #[allow(non_upper_case_globals)]
+                pub fn new(a: i32) -> Self {
+                    const b: i32 = 42;
+                    let c = a * b + 4;
+                    Self { a: a, b: b, c: c }
+                }
+            }
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
+    fn test_defew_internal_reference_other_field_unnamed() {
+        let input = parse_quote! {
+            struct Data(#[new] i32, #[new(_0 * 2)] i32);
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl Data {
+                #[doc = "Creates a new instance of the struct with default values"]
+                #[allow(non_upper_case_globals)]
+                pub fn new(_0: i32) -> Self {
+                    let _1 = _0 * 2;
+                    Self { 0: _0, 1: _1 }
+                }
+            }
+        };
+
+        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+    }
+
+    #[test]
     fn test_defew_internal_with_unit_struct() {
         let input = parse_quote! {
             struct Data;
