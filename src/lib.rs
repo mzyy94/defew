@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Index, Lit, Member};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Lit, Member};
 
 /// Creates a `new()` constructor with specified default values for a struct.
 ///
@@ -214,22 +214,20 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
         _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
     };
 
-    let field_values = fields.members().map(|member| match member {
-        Member::Named(ident) => quote! { #ident: #ident, },
-        Member::Unnamed(i) => {
-            let ident = format_ident!("_{}", i);
-            quote! { #i: #ident, }
-        }
-    });
+    let field_values: Vec<_> = fields
+        .members()
+        .map(|member| match member {
+            Member::Named(ident) => (quote!(#ident), ident),
+            Member::Unnamed(i) => (quote!(#i), format_ident!("_{}", i)),
+        })
+        .collect();
 
     let mut params = Vec::new(); // params for the `::new(..)` constructor
     let mut variables = Vec::new();
-    for (i, f) in fields.iter().enumerate().map(|(i, f)| (Index::from(i), f)) {
-        let ty = &f.ty;
-        let arg = f.ident.clone().unwrap_or_else(|| format_ident!("_{}", i));
+    for (Field { ty, attrs, .. }, (_, arg)) in fields.iter().zip(&field_values) {
         let default = quote! { <#ty as ::core::default::Default>::default() };
 
-        match get_token_result(&f.attrs, "new") {
+        match get_token_result(attrs, "new") {
             // If the attribute is #[new], we will ask for the value at runtime
             TokenResult::Path => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
@@ -244,6 +242,7 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
 
     let struct_name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
+    let field_values = field_values.iter().map(|(f, v)| quote! { #f: #v, });
 
     quote! {
         #[automatically_derived]
