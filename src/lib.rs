@@ -188,28 +188,29 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Lit, 
 #[proc_macro_derive(Defew, attributes(new, defew))]
 pub fn defew(input: TokenStream) -> TokenStream {
     let input = &parse_macro_input!(input as DeriveInput);
-    defew_internal(input).into()
+    defew_internal(input)
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
 }
 
-fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
+fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
     let Data::Struct(DataStruct { fields, .. }) = &input.data else {
-        return quote! ( compile_error!("Defew only supports structs"); );
+        return Ok(quote! ( compile_error!("Defew only supports structs"); ));
     };
     if matches!(fields, Fields::Unit) {
-        return quote! ( compile_error!("Defew does not support unit structs"); );
+        return Ok(quote! ( compile_error!("Defew does not support unit structs"); ));
     }
 
-    let (trait_for, visibility) = match get_token_result(&input.attrs, "defew") {
+    let (trait_for, visibility) = match get_token_result(&input.attrs, "defew")? {
         // If the attribute is #[defew(trait)], we will implement the trait
-        Ok(Some(MetaToken::List(tokens))) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
+        Some(MetaToken::List(tokens)) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
         // If the attribute is #[defew], we will implement the new() constructor with private visibility
-        Ok(Some(MetaToken::Path)) => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
+        Some(MetaToken::Path) => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
         // If the attribute is #[defew = "crate"], we will implement the new() constructor with specified visibility
-        Ok(Some(MetaToken::NameValue(Lit::Str(s)))) => {
+        Some(MetaToken::NameValue(Lit::Str(s))) => {
             let restriction: Option<proc_macro2::TokenStream> = s.parse().ok();
             (quote!(), quote!(pub(#restriction))) // => `impl Struct`, `pub(crate) fn new(..)`
         }
-        Err(e) => return e.to_compile_error(),
         // If the attribute is not present, we will not implement any trait
         _ => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
     };
@@ -226,16 +227,15 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
     let mut params = Vec::new(); // params for the `::new(..)` constructor
     let mut variables = Vec::new();
     for (Field { ty, attrs, .. }, (_, arg)) in fields.iter().zip(&field_values) {
-        match get_token_result(attrs, "new") {
+        match get_token_result(attrs, "new")? {
             // If the attribute is #[new], we will ask for the value at runtime
-            Ok(Some(MetaToken::Path)) => params.push(quote! ( #arg: #ty )),
+            Some(MetaToken::Path) => params.push(quote! ( #arg: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
-            Ok(Some(MetaToken::List(value))) => variables.push(quote! { let #arg: #ty = #value; }),
+            Some(MetaToken::List(value)) => variables.push(quote! { let #arg: #ty = #value; }),
             // If the attribute is #[new = value], we will use the provided value as const
-            Ok(Some(MetaToken::NameValue(v))) => variables.push(quote! { const #arg: #ty = #v; }),
+            Some(MetaToken::NameValue(v)) => variables.push(quote! { const #arg: #ty = #v; }),
             // If the attribute is not present, we will use the default value
-            Ok(None) => variables.push(quote! { let #arg: #ty = #default; }),
-            Err(e) => return e.to_compile_error(),
+            None => variables.push(quote! { let #arg: #ty = #default; }),
         }
     }
 
@@ -243,7 +243,7 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
     let field_values = field_values.iter().map(|(f, v)| quote! { #f: #v });
 
-    quote! {
+    let expanded = quote! {
         #[automatically_derived]
         impl #impl_generics #trait_for #struct_name #ty_generics #where_clause {
             #[doc = "Creates a new instance of the struct with default values"]
@@ -253,7 +253,8 @@ fn defew_internal(input: &DeriveInput) -> proc_macro2::TokenStream {
                 Self { #(#field_values),* }
             }
         }
-    }
+    };
+    Ok(expanded)
 }
 
 enum MetaToken<'a> {
@@ -361,7 +362,10 @@ mod tests {
             }
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -383,7 +387,10 @@ mod tests {
             }
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -408,7 +415,10 @@ mod tests {
             }
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -435,7 +445,10 @@ mod tests {
             }
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -464,7 +477,10 @@ mod tests {
             }
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -485,7 +501,10 @@ mod tests {
             }
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -498,7 +517,10 @@ mod tests {
             compile_error!("Defew does not support unit structs");
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -514,7 +536,10 @@ mod tests {
             compile_error!("Defew only supports structs");
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -527,11 +552,12 @@ mod tests {
             }
         };
 
-        let output = quote! {
-            ::core::compile_error! {"Defew accepts one attribute"}
-        };
+        let output = "Defew accepts one attribute";
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap_err().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -543,11 +569,12 @@ mod tests {
             }
         };
 
-        let output = quote! {
-            ::core::compile_error! {"Defew does not support this syntax"}
-        };
+        let output = "Defew does not support this syntax";
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap_err().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -559,11 +586,12 @@ mod tests {
             }
         };
 
-        let output = quote! {
-            ::core::compile_error! {"Defew only supports #[new] here"}
-        };
+        let output = "Defew only supports #[new] here";
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap_err().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -575,11 +603,12 @@ mod tests {
             }
         };
 
-        let output = quote! {
-            ::core::compile_error! {"Defew does not support this syntax"}
-        };
+        let output = "Defew does not support this syntax";
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap_err().to_string(),
+            output.to_string()
+        );
     }
 
     #[test]
@@ -603,6 +632,9 @@ mod tests {
             }
         };
 
-        assert_eq!(defew_internal(&input).to_string(), output.to_string());
+        assert_eq!(
+            defew_internal(&input).unwrap().to_string(),
+            output.to_string()
+        );
     }
 }
