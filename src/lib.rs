@@ -256,13 +256,13 @@ pub fn defew(input: TokenStream) -> TokenStream {
 enum TokenResult<'a> {
     Path,
     List(&'a proc_macro2::TokenStream),
-    NameValue(&'a syn::Expr), // NOTE: syn::Expr should be literal because rustc only allows literals currently
+    NameValue(&'a syn::Lit),
     NoAttr,
     Err(syn::Error),
 }
 
 fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> TokenResult<'a> {
-    use syn::{Error, MacroDelimiter, Meta, MetaList, MetaNameValue};
+    use syn::{Error, Expr, ExprLit, MacroDelimiter, Meta, MetaList, MetaNameValue};
     use TokenResult::{Err, List, NameValue, NoAttr, Path};
 
     let another = match name {
@@ -291,10 +291,13 @@ fn get_token_result<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Toke
             delimiter: MacroDelimiter::Paren(_),
             ..
         })) if !tokens.is_empty() => List(tokens),
-        Some(Meta::NameValue(MetaNameValue { value, .. })) => NameValue(value),
+        Some(Meta::NameValue(MetaNameValue {
+            value: Expr::Lit(ExprLit { lit, .. }),
+            ..
+        })) => NameValue(lit),
         Some(meta) => Err(Error::new_spanned(
             meta,
-            format!("Defew supports #[{name}(..)] syntax"),
+            "Defew does not support this syntax",
         )),
         None => NoAttr,
     }
