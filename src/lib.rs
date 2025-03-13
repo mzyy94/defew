@@ -2,9 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{
-    parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Lit, Member, Meta, Result,
-};
+use syn::{Data, DataStruct, DeriveInput, Field, Fields, Lit, Member, Meta, Result};
 
 /// Creates a `new()` constructor with specified default values for a struct.
 ///
@@ -189,7 +187,7 @@ use syn::{
 ///
 #[proc_macro_derive(Defew, attributes(new, defew))]
 pub fn defew(input: TokenStream) -> TokenStream {
-    let input = &parse_macro_input!(input as DeriveInput);
+    let input = &syn::parse_macro_input!(input as DeriveInput);
     defew_internal(input)
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
@@ -230,7 +228,7 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
 
     let (trait_for, visibility) = match find_meta(&input.attrs, "defew")? {
         // If the attribute is #[defew(trait)], we will implement the trait
-        Some(match_token!(MetaList, tokens)) => (quote! { #tokens for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
+        Some(match_token!(MetaList, tr)) if !tr.is_empty() => (quote! { #tr for }, quote!()), // => `impl Trait for Struct`, `fn new(..)`
         // If the attribute is #[defew], we will implement the new() constructor with private visibility
         Some(Meta::Path(_)) => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
         // If the attribute is #[defew = "crate"], we will implement the new() constructor with specified visibility
@@ -243,34 +241,34 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
         m => err!(m, "Defew does not support this syntax"),
     };
 
-    let field_values: Vec<_> = fields
+    let names: Vec<_> = fields
         .members()
         .map(|member| match member {
-            Member::Named(ident) => (quote!(#ident), ident),
-            Member::Unnamed(i) => (quote!(#i), format_ident!("_{}", i)),
+            Member::Named(ident) => ident,
+            Member::Unnamed(idx) => format_ident!("_{}", idx),
         })
         .collect();
 
     let default = quote! { ::core::default::Default::default() };
     let mut params = Vec::new(); // params for the `::new(..)` constructor
     let mut variables = Vec::new();
-    for (Field { ty, attrs, .. }, (_, arg)) in fields.iter().zip(&field_values) {
+    for (Field { ty, attrs, .. }, name) in fields.iter().zip(&names) {
         match find_meta(attrs, "new")? {
             // If the attribute is #[new], we will ask for the value at runtime
-            Some(Meta::Path(_)) => params.push(quote! ( #arg: #ty )),
+            Some(Meta::Path(_)) => params.push(quote! ( #name: #ty )),
             // If the attribute is #[new(value)], we will use the provided value
-            Some(match_token!(MetaList, v)) => variables.push(quote! { let #arg: #ty = #v; }),
+            Some(match_token!(MetaList, v)) => variables.push(quote! { let #name: #ty = #v; }),
             // If the attribute is #[new = value], we will use the provided value as const
-            Some(match_token!(NameValue, v)) => variables.push(quote! { const #arg: #ty = #v; }),
+            Some(match_token!(NameValue, v)) => variables.push(quote! { const #name: #ty = #v; }),
             // If the attribute is not present, we will use the default value
-            None => variables.push(quote! { let #arg: #ty = #default; }),
+            None => variables.push(quote! { let #name: #ty = #default; }),
             m => err!(m, "Defew does not support this syntax"),
         }
     }
 
     let struct_name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = &input.generics.split_for_impl();
-    let field_values = field_values.iter().map(|(f, v)| quote! { #f: #v });
+    let field_values = fields.members().zip(names).map(|(f, v)| quote! { #f: #v });
 
     let expanded = quote! {
         #[automatically_derived]
