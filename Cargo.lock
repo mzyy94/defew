@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "defew"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "proc-macro2",
  "quote",
