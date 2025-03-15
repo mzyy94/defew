@@ -285,20 +285,15 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
 }
 
 fn find_meta<'a>(attrs: &'a [syn::Attribute], name: &'static str) -> Result<Option<&'a syn::Meta>> {
-    let another = match name {
-        "new" => "defew",
-        "defew" => "new",
-        _ => unreachable!(),
-    };
-    if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident(another)) {
-        err!(attr, format!("Defew only supports #[{name}] here"));
-    }
+    const NAMES: [&str; 2] = ["new", "defew"];
+    let is_ours = |attr: &&syn::Attribute| NAMES.iter().any(|n| attr.path().is_ident(n));
 
-    let attrs: Vec<_> = attrs.iter().filter(|a| a.path().is_ident(name)).collect();
-    if attrs.len() > 1 {
-        err!(attrs.last(), "Defew accepts one attribute");
+    match attrs.iter().filter(is_ours).take(2).collect::<Vec<_>>()[..] {
+        [] => Ok(None),
+        [a] if !a.path().is_ident(name) => err!(a, format!("Defew only supports #[{name}] here")),
+        [attr] => Ok(Some(&attr.meta)),
+        [.., attr] => err!(attr, format!("Defew accepts one attribute")),
     }
-    Ok(attrs.first().map(|attr| &attr.meta))
 }
 
 #[cfg(test)]
