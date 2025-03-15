@@ -525,6 +525,20 @@ mod tests {
     }
 
     #[test]
+    fn test_defew_internal_with_invalid_visibility() {
+        let input = parse_quote! {
+            #[defew = 1]
+            struct Data {
+                a: i32,
+            }
+        };
+
+        let output = "Defew does not support this syntax";
+
+        assert_eq!(defew_internal(&input).unwrap_err().to_string(), output);
+    }
+
+    #[test]
     fn test_defew_internal_with_invalid_syntax() {
         let input = parse_quote! {
             struct Data {
