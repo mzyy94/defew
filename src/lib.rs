@@ -233,12 +233,12 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
         Some(Meta::Path(_)) => (quote!(), quote!()), // => `impl Struct`, `fn new(..)`
         // If the attribute is #[defew = "crate"], we will implement the new() constructor with specified visibility
         Some(match_token!(NameValue, Lit::Str(s))) => {
-            let restriction: Option<proc_macro2::TokenStream> = s.parse().ok();
+            let restriction: proc_macro2::TokenStream = s.parse()?;
             (quote!(), quote!(pub(#restriction))) // => `impl Struct`, `pub(crate) fn new(..)`
         }
         // If the attribute is not present, we will not implement any trait
         None => (quote!(), quote!(pub)), // => `impl Struct`, `pub fn new(..)`
-        m => err!(m, "Defew does not support this syntax"),
+        Some(meta) => err!(meta, "Defew does not support this syntax"),
     };
 
     let names: Vec<_> = fields
@@ -262,7 +262,7 @@ fn defew_internal(input: &DeriveInput) -> Result<proc_macro2::TokenStream> {
             Some(match_token!(NameValue, v)) => variables.push(quote! { const #name: #ty = #v; }),
             // If the attribute is not present, we will use the default value
             None => variables.push(quote! { let #name: #ty = #default; }),
-            m => err!(m, "Defew does not support this syntax"),
+            Some(meta) => err!(meta, "Defew does not support this syntax"),
         }
     }
 
